@@ -1,34 +1,35 @@
 # AudioFallback
 
-AudioFallback ist eine kleine macOS-Menüleisten-App für priorisierte
-Standard-Audiogeräte.
+AudioFallback is a small macOS menu bar app for prioritized default audio
+devices.
 
-Sie verwaltet getrennte Prioritätslisten für Eingabegeräte (Mikrofone) und
-Ausgabegeräte (Lautsprecher/Kopfhörer). Wenn Geräte erscheinen oder verschwinden,
-wählt sie das erste verfügbare Gerät aus der passenden Liste.
+It manages separate priority lists for input devices (microphones) and output
+devices (speakers/headphones). When devices appear or disappear, AudioFallback
+selects the first available device from the relevant list.
 
-## Umfang
+## Scope
 
-Das ist ein Open-Source-MVP, inspiriert vom Geräteprioritäts-Teil von Apps wie
-SoundSource. Per-App-Audio-Routing, Effekte, Lautstärke-Boosting, Aufnahme und
-virtuelle Audiotreiber sind bewusst nicht enthalten.
+This is an open-source MVP focused on device priority and fallback behavior.
+Per-app audio routing, effects, volume boosting, recording, and virtual audio
+drivers are intentionally out of scope.
 
-## Starten
+## Run
 
 ```sh
 swift run AudioFallback
 ```
 
-Die App erscheint in der Menüleiste. Über **Einstellungen ...** lassen sich
-Mikrofone und Lautsprecher unabhängig sortieren.
+The app appears in the menu bar. Open **Settings...** to sort microphones and
+speakers independently, enable or disable automatic switching, and choose
+whether AudioFallback should start when you log in.
 
-Die Einstellungen werden hier gespeichert:
+Preferences are stored at:
 
 ```text
 ~/Library/Application Support/AudioFallback/preferences.json
 ```
 
-## Build und Tests
+## Build and Test
 
 ```sh
 swift test
@@ -36,24 +37,30 @@ swift build
 scripts/build-app.sh
 ```
 
-Das App-Bundle liegt danach unter:
+The app bundle is written to:
 
 ```text
 .build/release/AudioFallback.app
 ```
 
-## Aktuelles Verhalten
+## Current Behavior
 
-- Eingabe- und Ausgabeprioritäten sind unabhängig.
-- Neu erkannte Geräte werden ans Ende der passenden Liste gehängt.
-- Beim Ausgabewechsel setzt die App sowohl das Standard-Ausgabegerät als auch
-  das System-Ausgabegerät.
-- Die Rückfallentscheidung ist durch Unit-Tests abgedeckt.
+- Input and output priorities are independent.
+- Newly discovered devices are appended to the end of the matching priority
+  list.
+- When switching output devices, the app sets both the default output device and
+  the system output device.
+- The fallback decision logic is covered by unit tests.
+- The UI is localized in English, German, French, Spanish, Italian, Brazilian
+  Portuguese, Simplified Chinese, Japanese, Korean, and Dutch.
 
-## Einschränkungen
+## Limitations
 
-- Das ist eine normale User-Space-App, kein virtueller Audiotreiber.
-- Bluetooth-„Nur Ausgabe“-Erzwingung ist noch nicht implementiert. Die App kann
-  ein separates Mikrofon gegenüber einem Headset-Mikrofon bevorzugen, aber macOS
-  und einzelne Apps können eigenes Audio-Geräteverhalten haben.
-- Es gibt noch keinen Login-Item-Installer.
+- AudioFallback is a regular user-space app, not a virtual audio driver.
+- Bluetooth "output only" enforcement is not implemented. The app can prefer a
+  separate microphone over a headset microphone, but macOS and individual apps
+  may still apply their own audio-device behavior.
+
+## License
+
+AudioFallback is released under the MIT License. See [LICENSE](LICENSE).

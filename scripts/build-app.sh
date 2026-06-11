@@ -5,13 +5,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/.build/release/AudioFallback.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
+RESOURCES="$CONTENTS/Resources"
 
 cd "$ROOT"
 swift build -c release
+BUILD_DIR="$(swift build -c release --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$MACOS"
-cp "$ROOT/.build/release/AudioFallback" "$MACOS/AudioFallback"
+mkdir -p "$RESOURCES"
+cp "$BUILD_DIR/AudioFallback" "$MACOS/AudioFallback"
+find "$BUILD_DIR" -maxdepth 1 -name "*.bundle" -exec cp -R {} "$RESOURCES/" \;
 
 cat > "$CONTENTS/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -26,6 +30,21 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
     <string>AudioFallback</string>
     <key>CFBundleDisplayName</key>
     <string>AudioFallback</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es</string>
+        <string>it</string>
+        <string>pt-BR</string>
+        <string>zh-Hans</string>
+        <string>ja</string>
+        <string>ko</string>
+        <string>nl</string>
+    </array>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

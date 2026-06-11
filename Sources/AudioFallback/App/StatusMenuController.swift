@@ -22,7 +22,7 @@ final class StatusMenuController: NSObject {
         menu.addItem(.separator())
 
         let autoSwitchItem = NSMenuItem(
-            title: "Automatisch umschalten",
+            title: L10n.string("menu.autoSwitch"),
             action: #selector(toggleAutoSwitch),
             keyEquivalent: ""
         )
@@ -31,22 +31,22 @@ final class StatusMenuController: NSObject {
         menu.addItem(autoSwitchItem)
 
         menu.addItem(.separator())
-        menu.addItem(submenuItem(title: "Mikrofone", kind: .input))
-        menu.addItem(submenuItem(title: "Lautsprecher", kind: .output))
+        menu.addItem(submenuItem(title: L10n.string("devices.input"), kind: .input))
+        menu.addItem(submenuItem(title: L10n.string("devices.output"), kind: .output))
 
         menu.addItem(.separator())
 
-        let settingsItem = NSMenuItem(title: "Einstellungen ...", action: #selector(showSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: L10n.string("menu.preferences"), action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
-        let refreshItem = NSMenuItem(title: "Geräte aktualisieren", action: #selector(refreshDevices), keyEquivalent: "r")
+        let refreshItem = NSMenuItem(title: L10n.string("settings.refreshDevices"), action: #selector(refreshDevices), keyEquivalent: "r")
         refreshItem.target = self
         menu.addItem(refreshItem)
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Beenden", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: L10n.string("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
 
         statusItem.menu = menu
@@ -69,7 +69,7 @@ final class StatusMenuController: NSObject {
         }
 
         if devices.isEmpty {
-            submenu.addItem(NSMenuItem(title: "Keine Geräte gefunden", action: nil, keyEquivalent: ""))
+            submenu.addItem(NSMenuItem(title: L10n.string("devices.noneFound"), action: nil, keyEquivalent: ""))
         } else {
             for (index, device) in devices.enumerated() {
                 let menuItem = NSMenuItem(
