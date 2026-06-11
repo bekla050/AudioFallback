@@ -17,6 +17,7 @@ final class AudioFallbackController: ObservableObject {
     private let hardware: AudioHardware
     private let preferenceStore: PreferenceStore
     private let logger = Logger(subsystem: "app.audiofallback", category: "Controller")
+    private var refreshTask: Task<Void, Never>?
 
     init(hardware: AudioHardware = AudioHardware(), preferenceStore: PreferenceStore = PreferenceStore()) {
         self.hardware = hardware
@@ -26,9 +27,9 @@ final class AudioFallbackController: ObservableObject {
 
     func start() {
         refresh()
-        hardware.observeDeviceChanges { [weak self] in
+        hardware.observeHardwareChanges { [weak self] in
             Task { @MainActor in
-                self?.refresh()
+                self?.scheduleRefresh()
             }
         }
     }
@@ -140,6 +141,17 @@ final class AudioFallbackController: ObservableObject {
             try preferenceStore.save(preferences)
         } catch {
             logger.error("Could not save preferences: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func scheduleRefresh() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else {
+                return
+            }
+            refresh()
         }
     }
 }

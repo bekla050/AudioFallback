@@ -9,7 +9,7 @@ final class AudioHardware {
     }
 
     private let logger = Logger(subsystem: "app.audiofallback", category: "AudioHardware")
-    private var listenerInstalled = false
+    private var installedListenerSelectors: Set<AudioObjectPropertySelector> = []
 
     func devices() throws -> [ManagedAudioDevice] {
         let deviceIDs = try deviceIDs()
@@ -103,28 +103,17 @@ final class AudioHardware {
         }
     }
 
-    func observeDeviceChanges(_ callback: @escaping @Sendable () -> Void) {
-        guard !listenerInstalled else {
-            return
-        }
+    func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void) {
+        let selectors: [AudioObjectPropertySelector] = [
+            kAudioHardwarePropertyDevices,
+            kAudioHardwarePropertyDefaultInputDevice,
+            kAudioHardwarePropertyDefaultOutputDevice,
+            kAudioHardwarePropertyDefaultSystemOutputDevice
+        ]
 
-        listenerInstalled = true
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        let status = AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject),
-            &address,
-            DispatchQueue.main
-        ) { _, _ in
-            callback()
-        }
-
-        if status != noErr {
-            logger.error("Could not install device listener: \(status)")
+        for selector in selectors where !installedListenerSelectors.contains(selector) {
+            installedListenerSelectors.insert(selector)
+            installSystemObjectListener(selector: selector, callback: callback)
         }
     }
 
@@ -201,6 +190,29 @@ final class AudioHardware {
             ))
         }
         return values
+    }
+
+    private func installSystemObjectListener(
+        selector: AudioObjectPropertySelector,
+        callback: @escaping @Sendable () -> Void
+    ) {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            DispatchQueue.main
+        ) { _, _ in
+            callback()
+        }
+
+        if status != noErr {
+            logger.error("Could not install hardware listener \(selector): \(status)")
+        }
     }
 
     private func check(_ status: OSStatus) throws {

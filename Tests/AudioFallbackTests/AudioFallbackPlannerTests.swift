@@ -123,4 +123,31 @@ struct AudioFallbackPlannerTests {
 
         #expect(merged == [current.uid, other.uid])
     }
+
+    @Test func keepsExistingPriorityAheadOfCurrentSystemDevice() {
+        let preferred = ManagedAudioDevice(
+            id: 1,
+            uid: "preferred-mic",
+            name: "Preferred Microphone",
+            supportsInput: true,
+            supportsOutput: false
+        )
+        let systemSelected = ManagedAudioDevice(
+            id: 2,
+            uid: "bluetooth-headset",
+            name: "Bluetooth Headset",
+            supportsInput: true,
+            supportsOutput: true
+        )
+        let preferences = AudioFallbackPreferences(inputPriorityUIDs: [preferred.uid, systemSelected.uid])
+
+        let merged = AudioFallbackPlanner.mergedPriorityUIDs(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [systemSelected, preferred],
+            preferredFirstUID: systemSelected.uid
+        )
+
+        #expect(merged == [preferred.uid, systemSelected.uid])
+    }
 }
