@@ -7,6 +7,11 @@ It manages separate priority lists for input devices (microphones) and output
 devices (speakers/headphones). When devices appear or disappear, AudioFallback
 selects the first available device from the relevant list.
 
+## Download
+
+Download the signed and notarized DMG:
+[AudioFallback-0.1.0.dmg](https://github.com/bekla050/AudioFallback/raw/main/dist/AudioFallback-0.1.0.dmg)
+
 ## Scope
 
 This is an open-source MVP focused on device priority and fallback behavior.
