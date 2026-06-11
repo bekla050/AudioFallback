@@ -6,44 +6,49 @@ struct SettingsView: View {
     @State private var loginItemError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Toggle(L10n.string("settings.autoSwitch"), isOn: Binding(
-                get: { controller.preferences.autoSwitchEnabled },
-                set: { controller.preferences.autoSwitchEnabled = $0 }
-            ))
-
-            Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
-                get: { launchAtLoginEnabled },
-                set: { newValue in
-                    setLaunchAtLogin(newValue)
-                }
-            ))
-
-            HStack(alignment: .top, spacing: 24) {
-                PriorityListView(
-                    title: L10n.string("devices.input"),
-                    kind: .input,
-                    currentUID: controller.currentInput?.uid,
-                    controller: controller
-                )
-
-                PriorityListView(
-                    title: L10n.string("devices.output"),
-                    kind: .output,
-                    currentUID: controller.currentOutput?.uid,
-                    controller: controller
-                )
-            }
-
-            HStack {
-                Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
-                    controller.refresh()
-                }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                Toggle(L10n.string("settings.autoSwitch"), isOn: Binding(
+                    get: { controller.preferences.autoSwitchEnabled },
+                    set: { controller.preferences.autoSwitchEnabled = $0 }
+                ))
 
                 Spacer()
 
-                Text(L10n.string("settings.priorityHint"))
-                    .foregroundStyle(.secondary)
+                Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
+                    controller.refresh()
+                }
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
+                        get: { launchAtLoginEnabled },
+                        set: { newValue in
+                            setLaunchAtLogin(newValue)
+                        }
+                    ))
+
+                    HStack(alignment: .top, spacing: 24) {
+                        PriorityListView(
+                            title: L10n.string("devices.input"),
+                            kind: .input,
+                            currentUID: controller.currentInput?.uid,
+                            controller: controller
+                        )
+
+                        PriorityListView(
+                            title: L10n.string("devices.output"),
+                            kind: .output,
+                            currentUID: controller.currentOutput?.uid,
+                            controller: controller
+                        )
+                    }
+
+                    Text(L10n.string("settings.priorityHint"))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(20)
