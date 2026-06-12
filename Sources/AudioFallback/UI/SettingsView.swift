@@ -1,58 +1,38 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var controller: AudioFallbackController
+    let layoutObserver: SettingsLayoutObserver?
     @State private var launchAtLoginEnabled = LoginItemManager.isEnabled
     @State private var loginItemError: String?
 
+    init(controller: AudioFallbackController, layoutObserver: SettingsLayoutObserver? = nil) {
+        self.controller = controller
+        self.layoutObserver = layoutObserver
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
-                Toggle(L10n.string("settings.autoSwitch"), isOn: Binding(
-                    get: { controller.preferences.autoSwitchEnabled },
-                    set: { controller.preferences.autoSwitchEnabled = $0 }
-                ))
+        VStack(alignment: .leading, spacing: 0) {
+            headerOptions
+                .padding(.top, 16)
 
-                Spacer()
-
-                Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
-                    controller.refresh()
-                }
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
-                        get: { launchAtLoginEnabled },
-                        set: { newValue in
-                            setLaunchAtLogin(newValue)
-                        }
-                    ))
-
-                    HStack(alignment: .top, spacing: 24) {
-                        PriorityListView(
-                            title: L10n.string("devices.input"),
-                            kind: .input,
-                            currentUID: controller.currentInput?.uid,
-                            controller: controller
-                        )
-
-                        PriorityListView(
-                            title: L10n.string("devices.output"),
-                            kind: .output,
-                            currentUID: controller.currentOutput?.uid,
-                            controller: controller
-                        )
-                    }
-
-                    Text(L10n.string("settings.priorityHint"))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            deviceLists
+                .padding(.top, 32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(20)
-        .frame(minWidth: 760, minHeight: 420)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+        .frame(
+            minWidth: 800,
+            maxWidth: .infinity,
+            minHeight: 500,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
+        .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityIdentifier(SettingsAccessibilityID.root)
         .onAppear {
             launchAtLoginEnabled = LoginItemManager.isEnabled
         }
@@ -70,6 +50,55 @@ struct SettingsView: View {
         }
     }
 
+    private var headerOptions: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                Toggle(L10n.string("settings.autoSwitch"), isOn: Binding(
+                    get: { controller.preferences.autoSwitchEnabled },
+                    set: { controller.preferences.autoSwitchEnabled = $0 }
+                ))
+
+                Spacer()
+
+                Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
+                    controller.refresh()
+                }
+            }
+
+            Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
+                get: { launchAtLoginEnabled },
+                set: { newValue in
+                    setLaunchAtLogin(newValue)
+                }
+            ))
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier(SettingsAccessibilityID.headerOptions)
+        .layoutProbe(SettingsAccessibilityID.headerOptions, observer: layoutObserver)
+    }
+
+    private var deviceLists: some View {
+        HStack(alignment: .top, spacing: 24) {
+            PriorityListView(
+                title: L10n.string("devices.input"),
+                kind: .input,
+                currentUID: controller.currentInput?.uid,
+                controller: controller
+            )
+
+            PriorityListView(
+                title: L10n.string("devices.output"),
+                kind: .output,
+                currentUID: controller.currentOutput?.uid,
+                controller: controller
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier(SettingsAccessibilityID.deviceLists)
+        .layoutProbe(SettingsAccessibilityID.deviceLists, observer: layoutObserver)
+    }
+
     private func setLaunchAtLogin(_ enabled: Bool) {
         do {
             try LoginItemManager.setEnabled(enabled)
@@ -81,55 +110,434 @@ struct SettingsView: View {
     }
 }
 
+enum SettingsAccessibilityID {
+    static let root = "settings.root"
+    static let headerOptions = "settings.headerOptions"
+    static let deviceLists = "settings.deviceLists"
+}
+
+@MainActor
+final class SettingsLayoutObserver {
+    private(set) var frames: [String: NSRect] = [:]
+
+    func record(_ frame: NSRect, for identifier: String) {
+        frames[identifier] = frame
+    }
+
+    func frame(for identifier: String) -> NSRect? {
+        frames[identifier]
+    }
+}
+
+private struct LayoutProbeModifier: ViewModifier {
+    let identifier: String
+    let observer: SettingsLayoutObserver?
+
+    func body(content: Content) -> some View {
+        content.background(SettingsLayoutProbeView(identifier: identifier, observer: observer))
+    }
+}
+
+private extension View {
+    func layoutProbe(_ identifier: String, observer: SettingsLayoutObserver?) -> some View {
+        modifier(LayoutProbeModifier(identifier: identifier, observer: observer))
+    }
+}
+
+private struct SettingsLayoutProbeView: NSViewRepresentable {
+    let identifier: String
+    let observer: SettingsLayoutObserver?
+
+    func makeNSView(context: Context) -> SettingsLayoutProbeNSView {
+        SettingsLayoutProbeNSView(identifier: identifier, observer: observer)
+    }
+
+    func updateNSView(_ nsView: SettingsLayoutProbeNSView, context: Context) {
+        nsView.probeIdentifier = identifier
+        nsView.observer = observer
+        nsView.recordFrame()
+    }
+}
+
+private final class SettingsLayoutProbeNSView: NSView {
+    var probeIdentifier: String
+    weak var observer: SettingsLayoutObserver?
+
+    init(identifier: String, observer: SettingsLayoutObserver?) {
+        self.probeIdentifier = identifier
+        self.observer = observer
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        self.probeIdentifier = ""
+        self.observer = nil
+        super.init(coder: coder)
+    }
+
+    override func layout() {
+        super.layout()
+        recordFrame()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        recordFrame()
+    }
+
+    func recordFrame() {
+        guard let contentView = window?.contentView else {
+            return
+        }
+        observer?.record(convert(bounds, to: contentView), for: probeIdentifier)
+    }
+}
+
 private struct PriorityListView: View {
     let title: String
     let kind: DeviceKind
     let currentUID: String?
     @ObservedObject var controller: AudioFallbackController
+    @State private var draggingUID: String?
+    @State private var rowWidth: CGFloat = 340
+    @State private var dragPreviewWidth: CGFloat?
 
     var body: some View {
+        let items = controller.orderedDeviceListItems(for: kind)
+
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.headline)
 
-            List {
-                ForEach(Array(controller.orderedDevices(for: kind).enumerated()), id: \.element.uid) { index, device in
-                    HStack(spacing: 10) {
-                        Text("\(index + 1)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22, alignment: .trailing)
+            GeometryReader { proxy in
+                let measuredRowWidth = max(340, proxy.size.width)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(device.name)
-                                .lineLimit(1)
-                            if device.uid == currentUID {
-                                Text(L10n.string("devices.active"))
-                                    .font(.caption)
-                                    .foregroundStyle(.green)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                            DeviceRowView(
+                                index: index,
+                                item: item,
+                                isCurrent: item.device.uid == currentUID,
+                                kind: kind,
+                                controller: controller,
+                                rowWidth: measuredRowWidth
+                            )
+                            .opacity(draggingUID == item.id ? 0.98 : 1)
+                            .onDrag {
+                                rowWidth = measuredRowWidth
+                                draggingUID = item.id
+                                dragPreviewWidth = measuredRowWidth
+                                NSCursor.closedHand.set()
+                                return NSItemProvider(object: item.id as NSString)
+                            } preview: {
+                                DeviceRowContent(
+                                    index: index,
+                                    item: item,
+                                    isCurrent: item.device.uid == currentUID,
+                                    removeAction: nil,
+                                    fixedWidth: dragPreviewWidth ?? measuredRowWidth
+                                )
                             }
+                            .onDrop(
+                                of: [.text],
+                                delegate: DeviceReorderDropDelegate(
+                                    item: item,
+                                    items: items,
+                                    kind: kind,
+                                    controller: controller,
+                                    draggingUID: $draggingUID,
+                                    dragPreviewWidth: $dragPreviewWidth
+                                )
+                            )
                         }
 
-                        Spacer()
-
-                        Button(L10n.string("devices.moveUp"), systemImage: "chevron.up") {
-                            controller.moveDevice(kind: kind, uid: device.uid, direction: -1)
-                        }
-                        .labelStyle(.iconOnly)
-                        .disabled(index == 0)
-                        .help(L10n.string("devices.moveUpHelp"))
-
-                        Button(L10n.string("devices.moveDown"), systemImage: "chevron.down") {
-                            controller.moveDevice(kind: kind, uid: device.uid, direction: 1)
-                        }
-                        .labelStyle(.iconOnly)
-                        .disabled(index == controller.orderedDevices(for: kind).count - 1)
-                        .help(L10n.string("devices.moveDownHelp"))
+                        Color.clear
+                            .frame(width: measuredRowWidth, height: 8)
+                            .onDrop(
+                                of: [.text],
+                                delegate: DeviceListEndDropDelegate(
+                                    items: items,
+                                    kind: kind,
+                                    controller: controller,
+                                    draggingUID: $draggingUID,
+                                    dragPreviewWidth: $dragPreviewWidth
+                                )
+                            )
                     }
+                    .frame(width: measuredRowWidth, alignment: .topLeading)
                     .padding(.vertical, 4)
                 }
+                .onAppear {
+                    rowWidth = measuredRowWidth
+                }
+                .onChange(of: measuredRowWidth) { _, newWidth in
+                    if draggingUID == nil {
+                        rowWidth = newWidth
+                    }
+                }
             }
-            .frame(minWidth: 340, minHeight: 300)
+            .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct DeviceRowView: View {
+    let index: Int
+    let item: AudioDeviceListItem
+    let isCurrent: Bool
+    let kind: DeviceKind
+    @ObservedObject var controller: AudioFallbackController
+    let rowWidth: CGFloat
+
+    var body: some View {
+        DeviceRowContent(
+            index: index,
+            item: item,
+            isCurrent: isCurrent
+        ) {
+            controller.removeUnavailableDevice(kind: kind, uid: item.device.uid)
+        }
+        .frame(width: rowWidth, alignment: .leading)
+    }
+}
+
+private struct DeviceRowContent: View {
+    let index: Int
+    let item: AudioDeviceListItem
+    let isCurrent: Bool
+    let removeAction: (() -> Void)?
+    let fixedWidth: CGFloat?
+
+    init(
+        index: Int,
+        item: AudioDeviceListItem,
+        isCurrent: Bool,
+        removeAction: (() -> Void)? = nil,
+        fixedWidth: CGFloat? = nil
+    ) {
+        self.index = index
+        self.item = item
+        self.isCurrent = isCurrent
+        self.removeAction = removeAction
+        self.fixedWidth = fixedWidth
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            DragHandleView()
+                .foregroundStyle(item.isAvailable ? .secondary : .tertiary)
+                .frame(width: 9)
+                .padding(.leading, 6)
+                .help(L10n.string("devices.dragHandleHelp"))
+
+            Text("\(index + 1)")
+                .font(.body.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 18, alignment: .trailing)
+
+            Text(item.device.name)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(item.isAvailable ? .primary : .secondary)
+
+            if isCurrent {
+                Text(L10n.string("devices.active"))
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 8)
+            } else if !item.isAvailable {
+                Text(L10n.string("devices.unavailable"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 82, alignment: .trailing)
+            }
+
+            if !item.isAvailable {
+                Button(L10n.string("devices.removeUnavailable"), systemImage: "trash") {
+                    removeAction?()
+                }
+                .labelStyle(.iconOnly)
+                .foregroundStyle(.red)
+                .help(L10n.string("devices.removeUnavailableHelp"))
+                .frame(width: 24)
+                .disabled(removeAction == nil)
+                .arrowCursor()
+            }
+        }
+        .rowChrome(fixedWidth: fixedWidth)
+        .contentShape(Rectangle())
+        .contentShape(.dragPreview, RoundedRectangle(cornerRadius: 6))
+        .handCursor()
+    }
+}
+
+private struct RowChromeModifier: ViewModifier {
+    let fixedWidth: CGFloat?
+
+    func body(content: Content) -> some View {
+        let shapedContent = content
+            .padding(.horizontal, 4)
+            .frame(minHeight: 38)
+
+        Group {
+            if let fixedWidth {
+                shapedContent
+                    .frame(width: fixedWidth, height: 38, alignment: .leading)
+            } else {
+                shapedContent
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(nsColor: .audioFallbackDeviceRowBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+        )
+    }
+}
+
+private extension NSColor {
+    static var audioFallbackDeviceRowBackground: NSColor {
+        NSColor(name: nil) { appearance in
+            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if bestMatch == .darkAqua {
+                return NSColor(calibratedWhite: 0.145, alpha: 1)
+            }
+            return .controlBackgroundColor
+        }
+    }
+}
+
+private extension View {
+    func rowChrome(fixedWidth: CGFloat?) -> some View {
+        modifier(RowChromeModifier(fixedWidth: fixedWidth))
+    }
+}
+
+private struct DragHandleView: View {
+    private let columns = Array(repeating: GridItem(.fixed(3), spacing: 3), count: 2)
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 3) {
+            ForEach(0..<6, id: \.self) { _ in
+                Circle()
+                    .frame(width: 3, height: 3)
+            }
+        }
+        .frame(width: 9, height: 15)
+    }
+}
+
+private struct DeviceReorderDropDelegate: DropDelegate {
+    let item: AudioDeviceListItem
+    let items: [AudioDeviceListItem]
+    let kind: DeviceKind
+    let controller: AudioFallbackController
+    @Binding var draggingUID: String?
+    @Binding var dragPreviewWidth: CGFloat?
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingUID,
+              draggingUID != item.id,
+              let fromIndex = items.firstIndex(where: { $0.id == draggingUID }),
+              let toIndex = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.12)) {
+            controller.moveDevice(
+                kind: kind,
+                from: IndexSet(integer: fromIndex),
+                to: toIndex > fromIndex ? toIndex + 1 : toIndex
+            )
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingUID = nil
+        dragPreviewWidth = nil
+        NSCursor.openHand.set()
+        return true
+    }
+
+    func dropExited(info: DropInfo) {
+        NSCursor.openHand.set()
+    }
+}
+
+private struct DeviceListEndDropDelegate: DropDelegate {
+    let items: [AudioDeviceListItem]
+    let kind: DeviceKind
+    let controller: AudioFallbackController
+    @Binding var draggingUID: String?
+    @Binding var dragPreviewWidth: CGFloat?
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingUID,
+              let fromIndex = items.firstIndex(where: { $0.id == draggingUID }),
+              fromIndex != items.count - 1 else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.12)) {
+            controller.moveDevice(
+                kind: kind,
+                from: IndexSet(integer: fromIndex),
+                to: items.count
+            )
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingUID = nil
+        dragPreviewWidth = nil
+        NSCursor.openHand.set()
+        return true
+    }
+}
+
+private struct HandCursorModifier: ViewModifier {
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                isHovering = hovering
+                if hovering {
+                    NSCursor.openHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+    }
+}
+
+private struct ArrowCursorModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.arrow.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+    }
+}
+
+private extension View {
+    func handCursor() -> some View {
+        modifier(HandCursorModifier())
+    }
+
+    func arrowCursor() -> some View {
+        modifier(ArrowCursorModifier())
     }
 }

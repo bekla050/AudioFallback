@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import AudioFallback
 
 struct AudioFallbackPlannerTests {
@@ -150,4 +151,296 @@ struct AudioFallbackPlannerTests {
 
         #expect(merged == [preferred.uid, systemSelected.uid])
     }
+
+    @Test func decodesLegacyPreferencesWithoutNewFields() throws {
+        let data = """
+        {
+          "autoSwitchEnabled": false,
+          "inputPriorityUIDs": ["legacy-mic"],
+          "outputPriorityUIDs": ["legacy-speakers"]
+        }
+        """.data(using: .utf8)!
+
+        let preferences = try JSONDecoder().decode(AudioFallbackPreferences.self, from: data)
+
+        #expect(preferences.autoSwitchEnabled == false)
+        #expect(preferences.inputPriorityUIDs == ["legacy-mic"])
+        #expect(preferences.outputPriorityUIDs == ["legacy-speakers"])
+        #expect(preferences.knownDevicesByUID.isEmpty)
+        #expect(preferences.manualInputUID == nil)
+        #expect(preferences.manualOutputUID == nil)
+    }
+
+    @Test func remembersLatestDiscoveredDeviceName() {
+        let original = device(uid: "usb-mic", name: "Old Name", input: true, output: false)
+        let renamed = device(uid: "usb-mic", name: "New Name", input: true, output: false)
+        var preferences = AudioFallbackPreferences()
+
+        preferences.remember([original])
+        preferences.remember([renamed])
+
+        #expect(preferences.knownDevicesByUID["usb-mic"]?.name == "New Name")
+    }
+
+    @Test func orderedListItemsIncludeUnavailableKnownDevices() {
+        let known = device(uid: "studio-mic", name: "Studio Mic", input: true, output: false)
+        let available = device(uid: "macbook-mic", name: "MacBook Mic", input: true, output: false)
+        let preferences = AudioFallbackPreferences(
+            inputPriorityUIDs: [known.uid, available.uid],
+            knownDevicesByUID: [known.uid: known, available.uid: available]
+        )
+
+        let items = AudioFallbackPlanner.orderedListItems(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [available]
+        )
+
+        #expect(items.map { $0.device.uid } == [known.uid, available.uid])
+        #expect(items.map(\.isAvailable) == [false, true])
+    }
+
+    @Test func manualMenuDeviceWinsWithoutReorderingPriorities() {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let preferences = AudioFallbackPreferences(
+            inputPriorityUIDs: [preferred.uid, manual.uid],
+            manualInputUID: manual.uid
+        )
+
+        let selected = AudioFallbackPlanner.preferredDevice(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [preferred, manual]
+        )
+
+        #expect(selected == manual)
+        #expect(preferences.inputPriorityUIDs == [preferred.uid, manual.uid])
+    }
+
+    @Test func staleManualDeviceFallsBackToPriorityList() {
+        let preferred = device(uid: "preferred-speakers", name: "Preferred Speakers", input: false, output: true)
+        let preferences = AudioFallbackPreferences(
+            outputPriorityUIDs: [preferred.uid],
+            manualOutputUID: "missing-speakers"
+        )
+
+        let selected = AudioFallbackPlanner.preferredDevice(
+            for: .output,
+            preferences: preferences,
+            availableDevices: [preferred]
+        )
+
+        #expect(selected == preferred)
+    }
+
+    @Test func duplicateAvailableDeviceUIDsDoNotCrashPlanner() {
+        let staleDuplicate = device(uid: "shared-uid", name: "Stale Duplicate", input: false, output: true)
+        let usableDuplicate = device(uid: "shared-uid", name: "Usable Duplicate", input: true, output: false)
+        let preferences = AudioFallbackPreferences(inputPriorityUIDs: ["shared-uid"])
+
+        let selected = AudioFallbackPlanner.preferredDevice(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [staleDuplicate, usableDuplicate]
+        )
+
+        #expect(selected == usableDuplicate)
+    }
+
+    @Test func duplicatePriorityUIDsOnlyCreateOneVisibleListItem() {
+        let microphone = device(uid: "studio-mic", name: "Studio Mic", input: true, output: false)
+        let preferences = AudioFallbackPreferences(
+            inputPriorityUIDs: [microphone.uid, microphone.uid],
+            knownDevicesByUID: [microphone.uid: microphone]
+        )
+
+        let items = AudioFallbackPlanner.orderedListItems(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [microphone]
+        )
+
+        #expect(items.map { $0.device.uid } == [microphone.uid])
+    }
+
+    @Test func identifiesStaleManualDeviceKinds() {
+        let available = device(uid: "available-mic", name: "Available Mic", input: true, output: false)
+        let preferences = AudioFallbackPreferences(
+            manualInputUID: available.uid,
+            manualOutputUID: "missing-speakers"
+        )
+
+        let staleKinds = AudioFallbackPlanner.staleManualUIDs(
+            preferences: preferences,
+            availableDevices: [available]
+        )
+
+        #expect(staleKinds == [.output])
+    }
+
+    @MainActor
+    @Test func removesUnavailableDeviceFromControllerPreferences() throws {
+        let unavailable = device(uid: "missing-mic", name: "Missing Mic", input: true, output: false)
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                inputPriorityUIDs: [unavailable.uid],
+                knownDevicesByUID: [unavailable.uid: unavailable],
+                manualInputUID: unavailable.uid
+            )
+        )
+        let controller = AudioFallbackController(
+            hardware: MockAudioHardware(devices: []),
+            preferenceStore: store
+        )
+
+        controller.removeUnavailableDevice(kind: .input, uid: unavailable.uid)
+
+        #expect(controller.preferences.inputPriorityUIDs.isEmpty)
+        #expect(controller.preferences.knownDevicesByUID[unavailable.uid] == nil)
+        #expect(controller.preferences.manualInputUID == nil)
+    }
+
+    @MainActor
+    @Test func removingUnavailableDeviceFromOneListKeepsKnownDataForOtherList() throws {
+        let headset = device(uid: "headset", name: "Headset", input: true, output: true)
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                inputPriorityUIDs: [headset.uid],
+                outputPriorityUIDs: [headset.uid],
+                knownDevicesByUID: [headset.uid: headset]
+            )
+        )
+        let controller = AudioFallbackController(
+            hardware: MockAudioHardware(devices: []),
+            preferenceStore: store
+        )
+
+        controller.removeUnavailableDevice(kind: .input, uid: headset.uid)
+
+        #expect(controller.preferences.inputPriorityUIDs.isEmpty)
+        #expect(controller.preferences.outputPriorityUIDs == [headset.uid])
+        #expect(controller.preferences.knownDevicesByUID[headset.uid] == headset)
+    }
+
+    @MainActor
+    @Test func reordersVisibleDevicesUsingDragIndexes() throws {
+        let first = device(uid: "first", name: "First", input: false, output: true)
+        let second = device(uid: "second", name: "Second", input: false, output: true)
+        let third = device(uid: "third", name: "Third", input: false, output: true)
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                outputPriorityUIDs: [first.uid, second.uid, third.uid],
+                knownDevicesByUID: [
+                    first.uid: first,
+                    second.uid: second,
+                    third.uid: third
+                ]
+            )
+        )
+        let controller = AudioFallbackController(
+            hardware: MockAudioHardware(devices: [first, second, third]),
+            preferenceStore: store
+        )
+        controller.refresh()
+
+        controller.moveDevice(kind: .output, from: IndexSet(integer: 2), to: 0)
+
+        #expect(controller.preferences.outputPriorityUIDs == [third.uid, first.uid, second.uid])
+    }
+
+    @MainActor
+    @Test func reorderingClearsManualMenuSelection() throws {
+        let first = device(uid: "first", name: "First", input: true, output: false)
+        let second = device(uid: "second", name: "Second", input: true, output: false)
+        let third = device(uid: "third", name: "Third", input: true, output: false)
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                inputPriorityUIDs: [first.uid, second.uid, third.uid],
+                knownDevicesByUID: [
+                    first.uid: first,
+                    second.uid: second,
+                    third.uid: third
+                ],
+                manualInputUID: first.uid
+            )
+        )
+        let controller = AudioFallbackController(
+            hardware: MockAudioHardware(devices: [first, second, third]),
+            preferenceStore: store
+        )
+        controller.refresh()
+
+        controller.moveDevice(kind: .input, from: IndexSet(integer: 0), to: 3)
+
+        #expect(controller.preferences.inputPriorityUIDs == [second.uid, third.uid, first.uid])
+        #expect(controller.preferences.manualInputUID == nil)
+    }
+
+    @MainActor
+    @Test func menuActivationPersistsManualDeviceWithoutReordering() throws {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let hardware = MockAudioHardware(devices: [preferred, manual])
+        let store = try preferenceStore(
+            AudioFallbackPreferences(inputPriorityUIDs: [preferred.uid, manual.uid])
+        )
+        let controller = AudioFallbackController(
+            hardware: hardware,
+            preferenceStore: store
+        )
+        controller.refresh()
+
+        controller.activateDeviceFromMenu(kind: .input, uid: manual.uid)
+
+        #expect(hardware.setDefaultCalls == [SetDefaultCall(uid: manual.uid, kind: .input)])
+        #expect(controller.preferences.manualInputUID == manual.uid)
+        #expect(controller.preferences.inputPriorityUIDs == [preferred.uid, manual.uid])
+    }
+}
+
+private func device(uid: String, name: String, input: Bool, output: Bool) -> ManagedAudioDevice {
+    ManagedAudioDevice(
+        id: UInt32(abs(uid.hashValue % Int(UInt32.max))),
+        uid: uid,
+        name: name,
+        supportsInput: input,
+        supportsOutput: output
+    )
+}
+
+private func preferenceStore(_ preferences: AudioFallbackPreferences) throws -> PreferenceStore {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let store = PreferenceStore(fileURL: directory.appendingPathComponent("preferences.json"))
+    try store.save(preferences)
+    return store
+}
+
+private struct SetDefaultCall: Equatable {
+    let uid: String
+    let kind: DeviceKind
+}
+
+private final class MockAudioHardware: AudioHardwareManaging {
+    var storedDevices: [ManagedAudioDevice]
+    var setDefaultCalls: [SetDefaultCall] = []
+
+    init(devices: [ManagedAudioDevice]) {
+        self.storedDevices = devices
+    }
+
+    func devices() throws -> [ManagedAudioDevice] {
+        storedDevices
+    }
+
+    func defaultDevice(for kind: DeviceKind) throws -> ManagedAudioDevice? {
+        storedDevices.first { $0.supports(kind) }
+    }
+
+    func setDefaultDevice(uid: String, for kind: DeviceKind) throws {
+        setDefaultCalls.append(SetDefaultCall(uid: uid, kind: kind))
+    }
+
+    func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void) {}
 }

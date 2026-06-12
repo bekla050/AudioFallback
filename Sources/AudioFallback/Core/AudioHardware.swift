@@ -2,6 +2,13 @@ import CoreAudio
 import Foundation
 import OSLog
 
+protocol AudioHardwareManaging {
+    func devices() throws -> [ManagedAudioDevice]
+    func defaultDevice(for kind: DeviceKind) throws -> ManagedAudioDevice?
+    func setDefaultDevice(uid: String, for kind: DeviceKind) throws
+    func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void)
+}
+
 final class AudioHardware {
     enum HardwareError: Error {
         case coreAudio(OSStatus)
@@ -221,3 +228,5 @@ final class AudioHardware {
         }
     }
 }
+
+extension AudioHardware: AudioHardwareManaging {}

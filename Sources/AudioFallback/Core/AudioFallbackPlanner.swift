@@ -6,12 +6,17 @@ struct AudioFallbackPlanner {
         preferences: AudioFallbackPreferences,
         availableDevices: [ManagedAudioDevice]
     ) -> ManagedAudioDevice? {
-        let devicesByUID = Dictionary(uniqueKeysWithValues: availableDevices.map { ($0.uid, $0) })
+        let devicesByUID = availableDevicesByUID(for: kind, from: availableDevices)
 
-        return preferences.priorityUIDs(for: kind)
+        if let manualUID = preferences.manualUID(for: kind),
+           let manualDevice = devicesByUID[manualUID] {
+            return manualDevice
+        }
+
+        return uniqueUIDs(preferences.priorityUIDs(for: kind))
             .lazy
             .compactMap { devicesByUID[$0] }
-            .first { $0.supports(kind) }
+            .first
     }
 
     static func mergedPriorityUIDs(
@@ -20,7 +25,7 @@ struct AudioFallbackPlanner {
         availableDevices: [ManagedAudioDevice],
         preferredFirstUID: String? = nil
     ) -> [String] {
-        let current = preferences.priorityUIDs(for: kind)
+        let current = uniqueUIDs(preferences.priorityUIDs(for: kind))
         let seededCurrent: [String]
         if current.isEmpty, let preferredFirstUID {
             seededCurrent = [preferredFirstUID]
@@ -34,6 +39,55 @@ struct AudioFallbackPlanner {
             .map(\.uid)
             .filter { !currentSet.contains($0) }
 
-        return seededCurrent + discovered
+        return uniqueUIDs(seededCurrent + discovered)
+    }
+
+    static func orderedListItems(
+        for kind: DeviceKind,
+        preferences: AudioFallbackPreferences,
+        availableDevices: [ManagedAudioDevice]
+    ) -> [AudioDeviceListItem] {
+        let availableDevicesByUID = availableDevicesByUID(for: kind, from: availableDevices)
+
+        return uniqueUIDs(preferences.priorityUIDs(for: kind)).compactMap { uid in
+            if let availableDevice = availableDevicesByUID[uid] {
+                return AudioDeviceListItem(device: availableDevice, isAvailable: true)
+            }
+
+            guard let knownDevice = preferences.knownDevicesByUID[uid], knownDevice.supports(kind) else {
+                return nil
+            }
+
+            return AudioDeviceListItem(device: knownDevice, isAvailable: false)
+        }
+    }
+
+    static func staleManualUIDs(
+        preferences: AudioFallbackPreferences,
+        availableDevices: [ManagedAudioDevice]
+    ) -> Set<DeviceKind> {
+        Set(DeviceKind.allCases.filter { kind in
+            guard let manualUID = preferences.manualUID(for: kind) else {
+                return false
+            }
+
+            return !availableDevices.contains { $0.uid == manualUID && $0.supports(kind) }
+        })
+    }
+
+    private static func availableDevicesByUID(
+        for kind: DeviceKind,
+        from availableDevices: [ManagedAudioDevice]
+    ) -> [String: ManagedAudioDevice] {
+        var devicesByUID: [String: ManagedAudioDevice] = [:]
+        for device in availableDevices where device.supports(kind) {
+            devicesByUID[device.uid] = device
+        }
+        return devicesByUID
+    }
+
+    private static func uniqueUIDs(_ uids: [String]) -> [String] {
+        var seenUIDs: Set<String> = []
+        return uids.filter { seenUIDs.insert($0).inserted }
     }
 }

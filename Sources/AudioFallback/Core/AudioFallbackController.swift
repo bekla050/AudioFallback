@@ -14,12 +14,13 @@ final class AudioFallbackController: ObservableObject {
         }
     }
 
-    private let hardware: AudioHardware
+    private let hardware: AudioHardwareManaging
     private let preferenceStore: PreferenceStore
     private let logger = Logger(subsystem: "app.audiofallback", category: "Controller")
     private var refreshTask: Task<Void, Never>?
+    private var startupRefreshTask: Task<Void, Never>?
 
-    init(hardware: AudioHardware = AudioHardware(), preferenceStore: PreferenceStore = PreferenceStore()) {
+    init(hardware: AudioHardwareManaging = AudioHardware(), preferenceStore: PreferenceStore = PreferenceStore()) {
         self.hardware = hardware
         self.preferenceStore = preferenceStore
         self.preferences = preferenceStore.load()
@@ -27,6 +28,7 @@ final class AudioFallbackController: ObservableObject {
 
     func start() {
         refresh()
+        scheduleStartupRefreshes()
         hardware.observeHardwareChanges { [weak self] in
             Task { @MainActor in
                 self?.scheduleRefresh()
@@ -46,32 +48,96 @@ final class AudioFallbackController: ObservableObject {
         }
     }
 
-    func moveDevice(kind: DeviceKind, uid: String, direction: Int) {
-        var uids = preferences.priorityUIDs(for: kind)
-        guard let index = uids.firstIndex(of: uid) else {
+    func moveDevice(kind: DeviceKind, from source: IndexSet, to destination: Int) {
+        guard !source.isEmpty else {
             return
         }
 
-        let newIndex = max(0, min(uids.count - 1, index + direction))
-        guard newIndex != index else {
+        var visibleUIDs = orderedDeviceListItems(for: kind).map { $0.device.uid }
+        let indexes = source.sorted()
+        guard indexes.allSatisfy({ visibleUIDs.indices.contains($0) }) else {
             return
         }
 
-        uids.swapAt(index, newIndex)
-        preferences.setPriorityUIDs(uids, for: kind)
+        let movedUIDs = indexes.map { visibleUIDs[$0] }
+        for index in indexes.reversed() {
+            visibleUIDs.remove(at: index)
+        }
+
+        let removedBeforeDestination = indexes.filter { $0 < destination }.count
+        let insertionIndex = max(0, min(visibleUIDs.count, destination - removedBeforeDestination))
+        visibleUIDs.insert(contentsOf: movedUIDs, at: insertionIndex)
+
+        let hiddenUIDs = preferences.priorityUIDs(for: kind).filter { !visibleUIDs.contains($0) }
+        let reorderedUIDs = visibleUIDs + hiddenUIDs
+        guard reorderedUIDs != preferences.priorityUIDs(for: kind) else {
+            return
+        }
+
+        var updated = preferences
+        updated.setPriorityUIDs(reorderedUIDs, for: kind)
+        updated.setManualUID(nil, for: kind)
+        preferences = updated
     }
 
-    func promoteDevice(kind: DeviceKind, uid: String) {
-        var uids = preferences.priorityUIDs(for: kind).filter { $0 != uid }
-        uids.insert(uid, at: 0)
-        preferences.setPriorityUIDs(uids, for: kind)
+    func removeUnavailableDevice(kind: DeviceKind, uid: String) {
+        guard !devices.contains(where: { $0.uid == uid && $0.supports(kind) }) else {
+            return
+        }
+
+        var updated = preferences
+        let uids = updated.priorityUIDs(for: kind).filter { $0 != uid }
+        updated.setPriorityUIDs(uids, for: kind)
+        if !updated.inputPriorityUIDs.contains(uid), !updated.outputPriorityUIDs.contains(uid) {
+            updated.knownDevicesByUID[uid] = nil
+        }
+        if updated.manualUID(for: kind) == uid {
+            updated.setManualUID(nil, for: kind)
+        }
+        preferences = updated
+    }
+
+    func activateDeviceFromMenu(kind: DeviceKind, uid: String) {
+        guard let device = devices.first(where: { $0.uid == uid && $0.supports(kind) }) else {
+            return
+        }
+
+        do {
+            try hardware.setDefaultDevice(uid: uid, for: kind)
+            switch kind {
+            case .input:
+                currentInput = device
+            case .output:
+                currentOutput = device
+            }
+
+            var updated = preferences
+            updated.setManualUID(uid, for: kind)
+            if updated != preferences {
+                preferences = updated
+            }
+            logger.info("Set \(kind.title, privacy: .public) device to \(device.name, privacy: .public)")
+        } catch {
+            logger.error("Could not set \(kind.title, privacy: .public) device: \(String(describing: error), privacy: .public)")
+        }
     }
 
     func orderedDevices(for kind: DeviceKind) -> [ManagedAudioDevice] {
-        let devicesByUID = Dictionary(uniqueKeysWithValues: devices.map { ($0.uid, $0) })
-        return preferences.priorityUIDs(for: kind)
-            .compactMap { devicesByUID[$0] }
-            .filter { $0.supports(kind) }
+        orderedDeviceListItems(for: kind)
+            .filter(\.isAvailable)
+            .map(\.device)
+    }
+
+    func orderedDeviceListItems(for kind: DeviceKind) -> [AudioDeviceListItem] {
+        AudioFallbackPlanner.orderedListItems(
+            for: kind,
+            preferences: preferences,
+            availableDevices: devices
+        )
+    }
+
+    func moreMenuDevices(for kind: DeviceKind) -> [ManagedAudioDevice] {
+        Array(orderedDevices(for: kind).dropFirst(5))
     }
 
     private func applyIfNeeded() {
@@ -112,10 +178,16 @@ final class AudioFallbackController: ObservableObject {
 
     private func mergeDiscoveredDevicesIntoPreferences() {
         var updated = preferences
+        updated.remember(devices)
+
+        for kind in AudioFallbackPlanner.staleManualUIDs(preferences: updated, availableDevices: devices) {
+            updated.setManualUID(nil, for: kind)
+        }
+
         updated.setPriorityUIDs(
             AudioFallbackPlanner.mergedPriorityUIDs(
                 for: .input,
-                preferences: preferences,
+                preferences: updated,
                 availableDevices: devices,
                 preferredFirstUID: currentInput?.uid
             ),
@@ -124,7 +196,7 @@ final class AudioFallbackController: ObservableObject {
         updated.setPriorityUIDs(
             AudioFallbackPlanner.mergedPriorityUIDs(
                 for: .output,
-                preferences: preferences,
+                preferences: updated,
                 availableDevices: devices,
                 preferredFirstUID: currentOutput?.uid
             ),
@@ -152,6 +224,19 @@ final class AudioFallbackController: ObservableObject {
                 return
             }
             refresh()
+        }
+    }
+
+    private func scheduleStartupRefreshes() {
+        startupRefreshTask?.cancel()
+        startupRefreshTask = Task { @MainActor in
+            for _ in 0..<15 {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else {
+                    return
+                }
+                refresh()
+            }
         }
     }
 }

@@ -23,6 +23,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.statusMenuController?.rebuildMenu()
             }
             .store(in: &cancellables)
+
+        controller.$currentInput
+            .sink { [weak self] _ in
+                self?.statusMenuController?.rebuildMenu()
+            }
+            .store(in: &cancellables)
+
+        controller.$currentOutput
+            .sink { [weak self] _ in
+                self?.statusMenuController?.rebuildMenu()
+            }
+            .store(in: &cancellables)
     }
 }
 
