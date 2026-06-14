@@ -20,20 +20,38 @@ struct SettingsWindowLayoutTests {
         #expect(initialContentSize == SettingsWindowFactory.contentSize)
         #expect(window.contentMinSize == SettingsWindowFactory.contentSize)
         #expect(window.minSize == window.frameRect(forContentRect: NSRect(origin: .zero, size: SettingsWindowFactory.contentSize)).size)
+        let contentView = try #require(window.contentView)
+        #expect(contentView.safeAreaInsets.top == 0)
+        #expect(contentView.safeAreaInsets.bottom == 0)
+        #expect(contentView.safeAreaRect == contentView.bounds)
 
+        let initialRootFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.root))
         let initialHeaderFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.headerOptions))
         let initialListsFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceLists))
+        let initialInputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .input)))
+        let initialOutputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .output)))
+        #expect(abs(initialRootFrame.maxY - initialContentSize.height) < 0.5)
+        #expect(abs(initialListsFrame.maxY - initialContentSize.height) < 0.5)
+        #expect(abs(initialInputScrollFrame.maxY - initialContentSize.height) < 0.5)
+        #expect(abs(initialOutputScrollFrame.maxY - initialContentSize.height) < 0.5)
 
         window.setContentSize(NSSize(width: 800, height: 700))
         forceLayout(window)
 
         let expandedContentSize = try #require(window.contentView?.bounds.size)
+        let expandedRootFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.root))
         let expandedHeaderFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.headerOptions))
         let expandedListsFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceLists))
+        let expandedInputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .input)))
+        let expandedOutputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .output)))
 
         #expect(expandedContentSize == NSSize(width: 800, height: 700))
+        #expect(abs(expandedRootFrame.maxY - expandedContentSize.height) < 0.5)
         #expect(abs(expandedHeaderFrame.minY - initialHeaderFrame.minY) < 0.5)
         #expect(abs(expandedListsFrame.minY - initialListsFrame.minY) < 0.5)
+        #expect(abs(expandedListsFrame.maxY - expandedContentSize.height) < 0.5)
+        #expect(abs(expandedInputScrollFrame.maxY - expandedContentSize.height) < 0.5)
+        #expect(abs(expandedOutputScrollFrame.maxY - expandedContentSize.height) < 0.5)
         #expect(expandedListsFrame.height > initialListsFrame.height)
 
         window.setContentSize(SettingsWindowFactory.contentSize)
@@ -42,12 +60,20 @@ struct SettingsWindowLayoutTests {
         let minimumContentSize = try #require(window.contentView?.bounds.size)
         #expect(minimumContentSize == SettingsWindowFactory.contentSize)
 
+        let minimumRootFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.root))
         let minimumHeaderFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.headerOptions))
         let minimumListsFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceLists))
+        let minimumInputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .input)))
+        let minimumOutputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .output)))
 
+        #expect(abs(minimumRootFrame.maxY - minimumContentSize.height) < 0.5)
         #expect(abs(minimumHeaderFrame.minY - initialHeaderFrame.minY) < 0.5)
         #expect(abs(minimumListsFrame.minY - initialListsFrame.minY) < 0.5)
+        #expect(abs(minimumListsFrame.maxY - minimumContentSize.height) < 0.5)
+        #expect(abs(minimumInputScrollFrame.maxY - minimumContentSize.height) < 0.5)
+        #expect(abs(minimumOutputScrollFrame.maxY - minimumContentSize.height) < 0.5)
         #expect(minimumListsFrame.height <= initialListsFrame.height + 0.5)
+
     }
 
     private func makeController() throws -> AudioFallbackController {

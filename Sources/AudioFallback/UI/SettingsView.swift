@@ -23,7 +23,6 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, 20)
         .frame(
             minWidth: 800,
             maxWidth: .infinity,
@@ -32,7 +31,9 @@ struct SettingsView: View {
             alignment: .topLeading
         )
         .background(Color(nsColor: .windowBackgroundColor))
+        .ignoresSafeArea(.container, edges: .bottom)
         .accessibilityIdentifier(SettingsAccessibilityID.root)
+        .layoutProbe(SettingsAccessibilityID.root, observer: layoutObserver)
         .onAppear {
             launchAtLoginEnabled = LoginItemManager.isEnabled
         }
@@ -79,19 +80,21 @@ struct SettingsView: View {
     }
 
     private var deviceLists: some View {
-        HStack(alignment: .top, spacing: 24) {
+        HStack(alignment: .top, spacing: 8) {
             PriorityListView(
                 title: L10n.string("devices.input"),
                 kind: .input,
                 currentUID: controller.currentInput?.uid,
-                controller: controller
+                controller: controller,
+                layoutObserver: layoutObserver
             )
 
             PriorityListView(
                 title: L10n.string("devices.output"),
                 kind: .output,
                 currentUID: controller.currentOutput?.uid,
-                controller: controller
+                controller: controller,
+                layoutObserver: layoutObserver
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -114,6 +117,15 @@ enum SettingsAccessibilityID {
     static let root = "settings.root"
     static let headerOptions = "settings.headerOptions"
     static let deviceLists = "settings.deviceLists"
+
+    static func deviceScrollView(for kind: DeviceKind) -> String {
+        switch kind {
+        case .input:
+            "settings.inputDeviceScrollView"
+        case .output:
+            "settings.outputDeviceScrollView"
+        }
+    }
 }
 
 @MainActor
@@ -198,19 +210,23 @@ private struct PriorityListView: View {
     let kind: DeviceKind
     let currentUID: String?
     @ObservedObject var controller: AudioFallbackController
+    let layoutObserver: SettingsLayoutObserver?
     @State private var draggingUID: String?
     @State private var rowWidth: CGFloat = 340
     @State private var dragPreviewWidth: CGFloat?
 
     var body: some View {
         let items = controller.orderedDeviceListItems(for: kind)
+        let scrollbarReservedWidth: CGFloat = 16
+        let rowLeadingBleedProtection: CGFloat = 4
 
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.headline)
+        GeometryReader { proxy in
+            let measuredRowWidth = max(324, proxy.size.width - scrollbarReservedWidth - rowLeadingBleedProtection)
+            let measuredScrollViewWidth = measuredRowWidth + scrollbarReservedWidth
 
-            GeometryReader { proxy in
-                let measuredRowWidth = max(340, proxy.size.width)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(title)
+                    .font(.headline)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -252,8 +268,12 @@ private struct PriorityListView: View {
                             )
                         }
 
+                    }
+                    .frame(width: measuredRowWidth, alignment: .topLeading)
+                    .overlay(alignment: .bottomLeading) {
                         Color.clear
                             .frame(width: measuredRowWidth, height: 8)
+                            .contentShape(Rectangle())
                             .onDrop(
                                 of: [.text],
                                 delegate: DeviceListEndDropDelegate(
@@ -265,9 +285,16 @@ private struct PriorityListView: View {
                                 )
                             )
                     }
-                    .frame(width: measuredRowWidth, alignment: .topLeading)
-                    .padding(.vertical, 4)
+                    .padding(.top, 4)
+                    .padding(.leading, rowLeadingBleedProtection)
+                    .padding(.trailing, scrollbarReservedWidth)
                 }
+                .frame(width: measuredScrollViewWidth, alignment: .leading)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+                .contentMargins(.bottom, 0, for: .scrollContent)
+                .contentMargins(.bottom, 0, for: .scrollIndicators)
+                .accessibilityIdentifier(SettingsAccessibilityID.deviceScrollView(for: kind))
+                .layoutProbe(SettingsAccessibilityID.deviceScrollView(for: kind), observer: layoutObserver)
                 .onAppear {
                     rowWidth = measuredRowWidth
                 }
@@ -277,9 +304,9 @@ private struct PriorityListView: View {
                     }
                 }
             }
-            .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -364,6 +391,7 @@ private struct DeviceRowContent: View {
                 .foregroundStyle(.red)
                 .help(L10n.string("devices.removeUnavailableHelp"))
                 .frame(width: 24)
+                .padding(.trailing, 4)
                 .disabled(removeAction == nil)
                 .arrowCursor()
             }
@@ -398,7 +426,13 @@ private struct RowChromeModifier: ViewModifier {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+                .stroke(Color(nsColor: .audioFallbackDeviceRowBorder), lineWidth: 1)
+        )
+        .shadow(
+            color: Color(nsColor: .audioFallbackDeviceRowShadow),
+            radius: 2,
+            x: 0,
+            y: 1
         )
     }
 }
@@ -410,7 +444,27 @@ private extension NSColor {
             if bestMatch == .darkAqua {
                 return NSColor(calibratedWhite: 0.145, alpha: 1)
             }
-            return .controlBackgroundColor
+            return NSColor(calibratedWhite: 1, alpha: 1)
+        }
+    }
+
+    static var audioFallbackDeviceRowBorder: NSColor {
+        NSColor(name: nil) { appearance in
+            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if bestMatch == .darkAqua {
+                return .separatorColor.withAlphaComponent(0.30)
+            }
+            return NSColor(calibratedWhite: 0.56, alpha: 1)
+        }
+    }
+
+    static var audioFallbackDeviceRowShadow: NSColor {
+        NSColor(name: nil) { appearance in
+            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if bestMatch == .darkAqua {
+                return .clear
+            }
+            return NSColor(calibratedWhite: 0, alpha: 0.12)
         }
     }
 }

@@ -143,6 +143,10 @@ final class StatusMenuController: NSObject {
     }
 
     @objc private func showSettings() {
+        openSettingsWindow()
+    }
+
+    private func openSettingsWindow() {
         if let settingsWindow {
             logSettingsWindowEvent("Showing existing settings window")
             settingsWindow.makeKeyAndOrderFront(nil)
@@ -180,7 +184,7 @@ enum SettingsWindowFactory {
             backing: .buffered,
             defer: false
         )
-        let hostingView = NSHostingView(rootView: SettingsView(
+        let hostingView = SettingsHostingView(rootView: SettingsView(
             controller: controller,
             layoutObserver: layoutObserver
         ))
@@ -199,6 +203,49 @@ enum SettingsWindowFactory {
         window.hidesOnDeactivate = false
         window.level = .floating
         return window
+    }
+}
+
+private final class SettingsHostingView<Content: View>: NSHostingView<Content> {
+    private lazy var zeroSafeAreaLayoutGuide = NSLayoutGuide()
+
+    required init(rootView: Content) {
+        super.init(rootView: rootView)
+        configureSafeAreaLayoutGuide()
+    }
+
+    @MainActor @preconcurrency required dynamic init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureSafeAreaLayoutGuide()
+    }
+
+    override var safeAreaInsets: NSEdgeInsets {
+        NSEdgeInsetsZero
+    }
+
+    override var safeAreaRect: NSRect {
+        bounds
+    }
+
+    override var safeAreaLayoutGuide: NSLayoutGuide {
+        zeroSafeAreaLayoutGuide
+    }
+
+    override var additionalSafeAreaInsets: NSEdgeInsets {
+        get {
+            NSEdgeInsetsZero
+        }
+        set {}
+    }
+
+    private func configureSafeAreaLayoutGuide() {
+        addLayoutGuide(zeroSafeAreaLayoutGuide)
+        NSLayoutConstraint.activate([
+            zeroSafeAreaLayoutGuide.leadingAnchor.constraint(equalTo: leadingAnchor),
+            zeroSafeAreaLayoutGuide.topAnchor.constraint(equalTo: topAnchor),
+            zeroSafeAreaLayoutGuide.trailingAnchor.constraint(equalTo: trailingAnchor),
+            zeroSafeAreaLayoutGuide.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
     }
 }
 
