@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioFallback}",
+            "name": "Debug AudioFallback",
+            "target": "AudioFallback",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug AudioFallback"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioFallback}",
+            "name": "Release AudioFallback",
+            "target": "AudioFallback",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release AudioFallback"
+        }
+    ]
+}
