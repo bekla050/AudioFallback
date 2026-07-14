@@ -10,7 +10,7 @@ selects the first available device from the relevant list.
 ## Download
 
 Download the signed and notarized DMG:
-[AudioFallback-0.2.1.dmg](https://github.com/bekla050/AudioFallback/raw/main/dist/AudioFallback-0.2.1.dmg)
+[AudioFallback-0.3.0.dmg](https://github.com/bekla050/AudioFallback/releases/download/v0.3.0/AudioFallback-0.3.0.dmg)
 
 ## Scope
 
