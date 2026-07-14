@@ -16,7 +16,7 @@ NOTARY_PASSWORD
 SPARKLE_PRIVATE_KEY
 ```
 
-Private Werte dürfen nie in Dateien, Commits oder Logs geschrieben werden. `MACOS_CERT_P12` enthält das Base64-kodierte Developer-ID-Zertifikat, `NOTARY_PASSWORD` ein anwendungsspezifisches Apple-ID-Passwort und `SPARKLE_PRIVATE_KEY` den privaten EdDSA-Schlüssel aus dem Schlüsselbund-Konto `app.audiofallback`.
+Private Werte dürfen nie in Repository-Dateien, Commits oder Logs geschrieben werden. `MACOS_CERT_P12` enthält das Base64-kodierte Developer-ID-Zertifikat, `NOTARY_PASSWORD` ein anwendungsspezifisches Apple-ID-Passwort und `SPARKLE_PRIVATE_KEY` den privaten EdDSA-Schlüssel aus dem Schlüsselbund-Konto `app.audiofallback`. Das Zertifikat wird für den Import ausschließlich temporär im Dateisystem des GitHub-Runners abgelegt und unmittelbar danach gelöscht.
 
 ## Version vorbereiten
 

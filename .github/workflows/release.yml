@@ -86,7 +86,7 @@ jobs:
           } | awk -F/ '{ print NF "\t" $0 }' | sort -rn | cut -f2- | \
             while IFS= read -r item; do sign "$item"; done
           sign "$APP_PATH"
-          codesign --verify --strict --verbose=2 "$APP_PATH"
+          codesign --verify --strict --deep --verbose=2 "$APP_PATH"
 
       - name: DMG bauen und signieren
         run: |
@@ -97,11 +97,15 @@ jobs:
           echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
 
       - name: Notarisieren und stapeln
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
         run: |
           xcrun notarytool submit "$DMG_PATH" \
-            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
-            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
-            --password "${{ secrets.NOTARY_PASSWORD }}" --wait
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" --wait
           xcrun stapler staple "$DMG_PATH"
           xcrun stapler validate "$DMG_PATH"
 
