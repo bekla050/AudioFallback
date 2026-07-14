@@ -11,7 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller.start()
-        let updaterController = UpdaterController(startAutomatically: true)
+        let updaterController = UpdaterController(
+            startAutomatically: UpdateHostConfiguration.canStartUpdater(
+                infoDictionary: Bundle.main.infoDictionary
+            )
+        )
         self.updaterController = updaterController
         statusMenuController = StatusMenuController(
             controller: controller,

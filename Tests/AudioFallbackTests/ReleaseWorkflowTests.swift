@@ -2,6 +2,21 @@ import Foundation
 import Testing
 
 struct ReleaseWorkflowTests {
+    @Test func pinsCheckoutAndDoesNotPersistCredentials() throws {
+        let workflow = try String(contentsOf: repositoryRoot.appendingPathComponent(".github/workflows/release.yml"))
+        let checkoutStart = try #require(workflow.range(of: "- name: Checkout")?.lowerBound)
+        let nextStep = try #require(workflow.range(
+            of: "- name: Release-Konfiguration prüfen",
+            range: checkoutStart..<workflow.endIndex
+        )?.lowerBound)
+        let checkoutStep = String(workflow[checkoutStart..<nextStep])
+
+        #expect(checkoutStep.contains(
+            "uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+        ))
+        #expect(checkoutStep.contains("persist-credentials: false"))
+    }
+
     @Test func hasTagTriggerSecurityGatesAndDraftPublication() throws {
         let workflow = try String(contentsOf: repositoryRoot.appendingPathComponent(".github/workflows/release.yml"))
         for required in [
