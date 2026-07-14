@@ -137,5 +137,11 @@ private final class LayoutMockAudioHardware: AudioHardwareManaging {
 
     func setDefaultDevice(uid: String, for kind: DeviceKind) throws {}
 
+    func outputLevel() throws -> OutputLevel? {
+        nil
+    }
+
+    func setOutputVolume(_ volume: Float) throws {}
+
     func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void) {}
 }

@@ -1,3 +1,4 @@
+import AudioToolbox
 import CoreAudio
 import Foundation
 import OSLog
@@ -6,6 +7,8 @@ protocol AudioHardwareManaging {
     func devices() throws -> [ManagedAudioDevice]
     func defaultDevice(for kind: DeviceKind) throws -> ManagedAudioDevice?
     func setDefaultDevice(uid: String, for kind: DeviceKind) throws
+    func outputLevel() throws -> OutputLevel?
+    func setOutputVolume(_ volume: Float) throws
     func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void)
 }
 
@@ -17,6 +20,7 @@ final class AudioHardware {
 
     private let logger = Logger(subsystem: "app.audiofallback", category: "AudioHardware")
     private var installedListenerSelectors: Set<AudioObjectPropertySelector> = []
+    private var installedOutputLevelListenerKeys: Set<OutputLevelListenerKey> = []
 
     func devices() throws -> [ManagedAudioDevice] {
         let deviceIDs = try deviceIDs()
@@ -110,6 +114,100 @@ final class AudioHardware {
         }
     }
 
+    func outputLevel() throws -> OutputLevel? {
+        guard let deviceID = try defaultDevice(for: .output)?.id else {
+            return nil
+        }
+
+        let objectID = AudioObjectID(deviceID)
+        let volume = try outputVolume(deviceID: objectID)
+        let muted = try outputMuted(deviceID: objectID)
+        guard volume != nil || muted != nil else {
+            return nil
+        }
+
+        return OutputLevel(volume: volume, isMuted: muted ?? false)
+    }
+
+    func outputVolume() throws -> Float? {
+        try outputLevel()?.volume
+    }
+
+    private func outputVolume(deviceID: AudioObjectID) throws -> Float? {
+        guard var address = supportedVolumeAddress(deviceID: deviceID) else {
+            return nil
+        }
+
+        var volume = Float32(0)
+        var dataSize = UInt32(MemoryLayout<Float32>.size)
+        try check(AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &dataSize,
+            &volume
+        ))
+        return min(1, max(0, Float(volume)))
+    }
+
+    private func outputMuted(deviceID: AudioObjectID) throws -> Bool? {
+        var address = muteAddress()
+        guard AudioObjectHasProperty(deviceID, &address) else {
+            return nil
+        }
+
+        var muteValue: UInt32 = 0
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+        try check(AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &dataSize,
+            &muteValue
+        ))
+        return muteValue != 0
+    }
+
+    func setOutputVolume(_ volume: Float) throws {
+        guard let deviceID = try defaultDevice(for: .output)?.id else {
+            return
+        }
+
+        var clampedVolume = Float32(min(1, max(0, volume)))
+        var didSetVolume = false
+
+        for address in volumeAddresses() {
+            var mutableAddress = address
+            guard AudioObjectHasProperty(AudioObjectID(deviceID), &mutableAddress) else {
+                continue
+            }
+
+            var isSettable = DarwinBoolean(false)
+            try check(AudioObjectIsPropertySettable(AudioObjectID(deviceID), &mutableAddress, &isSettable))
+            guard isSettable.boolValue else {
+                continue
+            }
+
+            try check(AudioObjectSetPropertyData(
+                AudioObjectID(deviceID),
+                &mutableAddress,
+                0,
+                nil,
+                UInt32(MemoryLayout<Float32>.size),
+                &clampedVolume
+            ))
+            didSetVolume = true
+        }
+
+        guard didSetVolume else {
+            return
+        }
+
+        try setOutputMuted(clampedVolume <= 0, deviceID: AudioObjectID(deviceID))
+    }
+
     func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void) {
         let selectors: [AudioObjectPropertySelector] = [
             kAudioHardwarePropertyDevices,
@@ -122,6 +220,61 @@ final class AudioHardware {
             installedListenerSelectors.insert(selector)
             installSystemObjectListener(selector: selector, callback: callback)
         }
+
+        installCurrentOutputVolumeListener(callback: callback)
+    }
+
+    private func volumeAddresses() -> [AudioObjectPropertyAddress] {
+        [
+            AudioObjectPropertyAddress(
+                mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            ),
+            AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+        ]
+    }
+
+    private func supportedVolumeAddress(deviceID: AudioObjectID) -> AudioObjectPropertyAddress? {
+        volumeAddresses().first { address in
+            var mutableAddress = address
+            return AudioObjectHasProperty(deviceID, &mutableAddress)
+        }
+    }
+
+    private func muteAddress() -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    private func setOutputMuted(_ muted: Bool, deviceID: AudioObjectID) throws {
+        var address = muteAddress()
+        guard AudioObjectHasProperty(deviceID, &address) else {
+            return
+        }
+
+        var isSettable = DarwinBoolean(false)
+        try check(AudioObjectIsPropertySettable(deviceID, &address, &isSettable))
+        guard isSettable.boolValue else {
+            return
+        }
+
+        var muteValue: UInt32 = muted ? 1 : 0
+        try check(AudioObjectSetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            UInt32(MemoryLayout<UInt32>.size),
+            &muteValue
+        ))
     }
 
     private func hasStreams(_ deviceID: AudioDeviceID, scope: AudioObjectPropertyScope) throws -> Bool {
@@ -213,12 +366,67 @@ final class AudioHardware {
             AudioObjectID(kAudioObjectSystemObject),
             &address,
             DispatchQueue.main
-        ) { _, _ in
+        ) { [weak self] _, _ in
+            self?.installCurrentOutputVolumeListener(callback: callback)
             callback()
         }
 
         if status != noErr {
             logger.error("Could not install hardware listener \(selector): \(status)")
+        }
+    }
+
+    private func installCurrentOutputVolumeListener(callback: @escaping @Sendable () -> Void) {
+        do {
+            guard let deviceID = try defaultDevice(for: .output)?.id else {
+                return
+            }
+
+            let objectID = AudioObjectID(deviceID)
+            for address in volumeAddresses() {
+                installCurrentOutputLevelListener(
+                    objectID: objectID,
+                    address: address,
+                    callback: callback
+                )
+            }
+            installCurrentOutputLevelListener(
+                objectID: objectID,
+                address: muteAddress(),
+                callback: callback
+            )
+        } catch {
+            logger.error("Could not install output volume listener: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func installCurrentOutputLevelListener(
+        objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress,
+        callback: @escaping @Sendable () -> Void
+    ) {
+        var mutableAddress = address
+        guard AudioObjectHasProperty(objectID, &mutableAddress) else {
+            return
+        }
+
+        let key = OutputLevelListenerKey(objectID: objectID, selector: address.mSelector)
+        guard !installedOutputLevelListenerKeys.contains(key) else {
+            return
+        }
+
+        let status = AudioObjectAddPropertyListenerBlock(
+            objectID,
+            &mutableAddress,
+            DispatchQueue.main
+        ) { _, _ in
+            callback()
+        }
+
+        if status == noErr {
+            installedOutputLevelListenerKeys.insert(key)
+        } else {
+            logger.error("Could not install output level listener \(objectID) \(address.mSelector): \(status)")
         }
     }
 
@@ -230,3 +438,8 @@ final class AudioHardware {
 }
 
 extension AudioHardware: AudioHardwareManaging {}
+
+private struct OutputLevelListenerKey: Hashable {
+    let objectID: AudioObjectID
+    let selector: AudioObjectPropertySelector
+}

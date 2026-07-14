@@ -12,25 +12,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.start()
         statusMenuController = StatusMenuController(controller: controller)
 
+        // @Published emits in willSet, before the stored property is updated.
+        // rebuildMenu() reads the controller state back, so deliver on the next
+        // main-queue tick to ensure it observes the committed value, not the
+        // previous one (otherwise the menu/icon lags one change behind).
         controller.$devices
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.statusMenuController?.rebuildMenu()
             }
             .store(in: &cancellables)
 
         controller.$preferences
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.statusMenuController?.rebuildMenu()
             }
             .store(in: &cancellables)
 
         controller.$currentInput
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.statusMenuController?.rebuildMenu()
             }
             .store(in: &cancellables)
 
         controller.$currentOutput
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.statusMenuController?.rebuildMenu()
+            }
+            .store(in: &cancellables)
+
+        controller.$currentOutputLevel
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.statusMenuController?.rebuildMenu()
             }

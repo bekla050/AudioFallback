@@ -7,6 +7,10 @@ final class AudioFallbackController: ObservableObject {
     @Published private(set) var devices: [ManagedAudioDevice] = []
     @Published private(set) var currentInput: ManagedAudioDevice?
     @Published private(set) var currentOutput: ManagedAudioDevice?
+    @Published private(set) var currentOutputLevel: OutputLevel?
+    var currentOutputVolume: Float? {
+        currentOutputLevel?.volume
+    }
     @Published var preferences: AudioFallbackPreferences {
         didSet {
             savePreferences()
@@ -41,6 +45,7 @@ final class AudioFallbackController: ObservableObject {
             devices = try hardware.devices()
             currentInput = try hardware.defaultDevice(for: .input)
             currentOutput = try hardware.defaultDevice(for: .output)
+            updateCurrentOutputLevel(try hardware.outputLevel())
             mergeDiscoveredDevicesIntoPreferences()
             applyIfNeeded()
         } catch {
@@ -109,6 +114,7 @@ final class AudioFallbackController: ObservableObject {
                 currentInput = device
             case .output:
                 currentOutput = device
+                updateCurrentOutputLevel(try hardware.outputLevel())
             }
 
             var updated = preferences
@@ -140,6 +146,27 @@ final class AudioFallbackController: ObservableObject {
         Array(orderedDevices(for: kind).dropFirst(5))
     }
 
+    func outputVolume() -> Float? {
+        do {
+            let level = try hardware.outputLevel()
+            updateCurrentOutputLevel(level)
+            return level?.volume
+        } catch {
+            logger.error("Could not read output volume: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    func setOutputVolume(_ volume: Float) {
+        do {
+            let clampedVolume = min(1, max(0, volume))
+            try hardware.setOutputVolume(clampedVolume)
+            updateCurrentOutputLevel(OutputLevel(volume: clampedVolume, isMuted: clampedVolume <= 0))
+        } catch {
+            logger.error("Could not set output volume: \(String(describing: error), privacy: .public)")
+        }
+    }
+
     private func applyIfNeeded() {
         guard preferences.autoSwitchEnabled else {
             return
@@ -169,11 +196,19 @@ final class AudioFallbackController: ObservableObject {
                 currentInput = target
             case .output:
                 currentOutput = target
+                updateCurrentOutputLevel(try hardware.outputLevel())
             }
             logger.info("Set \(kind.title, privacy: .public) device to \(target.name, privacy: .public)")
         } catch {
             logger.error("Could not set \(kind.title, privacy: .public) device: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    private func updateCurrentOutputLevel(_ level: OutputLevel?) {
+        guard currentOutputLevel != level else {
+            return
+        }
+        currentOutputLevel = level
     }
 
     private func mergeDiscoveredDevicesIntoPreferences() {

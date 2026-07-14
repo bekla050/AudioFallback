@@ -7,21 +7,29 @@ final class StatusMenuController: NSObject {
     private let controller: AudioFallbackController
     private let statusItem: NSStatusItem
     private let logger = Logger(subsystem: "app.audiofallback", category: "StatusMenu")
+    private let statusIconHeight: CGFloat = 21.6
+    private let statusIconMarkerSpeakerGap: CGFloat = 0.4
+    private let statusIconTrailingPadding: CGFloat = 1.6
+    private let statusIconSpeakerPointSize: CGFloat = 19.2
+    private let statusIconMarkerPointSize: CGFloat = 10.35
+    private let statusIconMarkerY: CGFloat = 5.3
     private var settingsWindow: NSWindow?
 
     init(controller: AudioFallbackController) {
         self.controller = controller
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        configureStatusItem()
+        updateStatusItemIcon()
         rebuildMenu()
     }
 
     func rebuildMenu() {
         let menu = NSMenu()
         menu.delegate = self
+        updateStatusItemIcon()
 
         menu.addItem(NSMenuItem(title: "AudioFallback", action: nil, keyEquivalent: ""))
+        menu.addItem(volumeMenuItem())
         menu.addItem(.separator())
 
         let autoSwitchItem = NSMenuItem(
@@ -56,9 +64,90 @@ final class StatusMenuController: NSObject {
         statusItem.menu = menu
     }
 
-    private func configureStatusItem() {
-        statusItem.button?.image = NSImage(systemSymbolName: "speaker.wave.2", accessibilityDescription: "AudioFallback")
+    private func updateStatusItemIcon() {
+        statusItem.button?.image = statusItemImage(for: controller.currentOutputLevel)
         statusItem.button?.imagePosition = .imageLeading
+    }
+
+    private func volumeMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        item.view = VolumeMenuItemView(volume: controller.currentOutputVolume) { [weak self] volume in
+            self?.controller.setOutputVolume(volume)
+            self?.updateStatusItemIcon()
+        }
+        return item
+    }
+
+    private func statusItemImage(for level: OutputLevel?) -> NSImage? {
+        let symbolName = volumeSymbolName(for: level)
+        guard let speakerImage = NSImage(
+            systemSymbolName: symbolName,
+            accessibilityDescription: "AudioFallback"
+        ) else {
+            return nil
+        }
+
+        let speakerConfiguration = NSImage.SymbolConfiguration(pointSize: statusIconSpeakerPointSize, weight: .regular)
+        let configuredSpeaker = speakerImage.withSymbolConfiguration(speakerConfiguration) ?? speakerImage
+
+        let marker = NSString(string: "A")
+        let markerAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: statusIconMarkerPointSize, weight: .bold),
+            .foregroundColor: NSColor.labelColor
+        ]
+        let markerSize = marker.size(withAttributes: markerAttributes)
+        let speakerSize = configuredSpeaker.size
+        let speakerX = markerSize.width + statusIconMarkerSpeakerGap
+        let imageSize = NSSize(
+            width: ceil(speakerX + speakerSize.width + statusIconTrailingPadding),
+            height: statusIconHeight
+        )
+
+        let image = NSImage(size: imageSize)
+        image.isTemplate = true
+        image.lockFocus()
+        defer {
+            image.unlockFocus()
+        }
+
+        marker.draw(at: NSPoint(x: 0, y: statusIconMarkerY), withAttributes: markerAttributes)
+
+        configuredSpeaker.draw(
+            in: NSRect(
+                x: speakerX,
+                y: (imageSize.height - speakerSize.height) / 2,
+                width: speakerSize.width,
+                height: speakerSize.height
+            ),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1
+        )
+
+        return image
+    }
+
+    private func volumeSymbolName(for level: OutputLevel?) -> String {
+        guard let level else {
+            return "speaker.wave.2"
+        }
+
+        if level.isSilent {
+            return "speaker.slash"
+        }
+
+        guard let volume = level.volume else {
+            return "speaker.wave.2"
+        }
+
+        switch volume {
+        case ..<0.34:
+            return "speaker.wave.1"
+        case ..<0.67:
+            return "speaker.wave.2"
+        default:
+            return "speaker.wave.3"
+        }
     }
 
     private func addDeviceSection(to menu: NSMenu, title: String, kind: DeviceKind) {
@@ -336,5 +425,93 @@ private final class MenuSelection: NSObject {
     init(kind: DeviceKind, uid: String) {
         self.kind = kind
         self.uid = uid
+    }
+}
+
+private final class VolumeMenuItemView: NSView {
+    private let slider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+    private let lowButton = NSButton()
+    private let highButton = NSButton()
+    private let onChange: (Float) -> Void
+
+    init(volume: Float?, onChange: @escaping (Float) -> Void) {
+        self.onChange = onChange
+        super.init(frame: NSRect(x: 0, y: 0, width: 340, height: 38))
+        configure(volume: volume)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    private func configure(volume: Float?) {
+        configureIconButton(lowButton, symbolName: "speaker.fill", action: #selector(decreaseVolume))
+        configureIconButton(highButton, symbolName: "speaker.wave.3.fill", action: #selector(increaseVolume))
+
+        let isVolumeAvailable = volume != nil
+        lowButton.isEnabled = isVolumeAvailable
+        highButton.isEnabled = isVolumeAvailable
+
+        slider.doubleValue = Double(volume ?? 0)
+        slider.isEnabled = isVolumeAvailable
+        slider.target = self
+        slider.action = #selector(sliderChanged(_:))
+        slider.isContinuous = true
+        slider.controlSize = .small
+        slider.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(lowButton)
+        addSubview(slider)
+        addSubview(highButton)
+
+        NSLayoutConstraint.activate([
+            lowButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            lowButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            lowButton.widthAnchor.constraint(equalToConstant: 24),
+            lowButton.heightAnchor.constraint(equalToConstant: 24),
+
+            slider.leadingAnchor.constraint(equalTo: lowButton.trailingAnchor, constant: 8),
+            slider.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            highButton.leadingAnchor.constraint(equalTo: slider.trailingAnchor, constant: 8),
+            highButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            highButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            highButton.widthAnchor.constraint(equalToConstant: 28),
+            highButton.heightAnchor.constraint(equalToConstant: 24),
+
+            heightAnchor.constraint(equalToConstant: 38)
+        ])
+    }
+
+    private func configureIconButton(_ button: NSButton, symbolName: String, action: Selector) {
+        let configuration = NSImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
+        button.image = image?.withSymbolConfiguration(configuration) ?? image
+        button.contentTintColor = .secondaryLabelColor
+        button.bezelStyle = .regularSquare
+        button.isBordered = false
+        button.imagePosition = .imageOnly
+        button.target = self
+        button.action = action
+        button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    @objc private func sliderChanged(_ sender: NSSlider) {
+        applyVolume(Float(sender.doubleValue))
+    }
+
+    @objc private func decreaseVolume() {
+        applyVolume(Float(slider.doubleValue) - 0.1)
+    }
+
+    @objc private func increaseVolume() {
+        applyVolume(Float(slider.doubleValue) + 0.1)
+    }
+
+    private func applyVolume(_ volume: Float) {
+        let clampedVolume = min(1, max(0, volume))
+        slider.doubleValue = Double(clampedVolume)
+        onChange(clampedVolume)
     }
 }

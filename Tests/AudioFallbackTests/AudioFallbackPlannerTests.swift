@@ -397,6 +397,49 @@ struct AudioFallbackPlannerTests {
         #expect(controller.preferences.manualInputUID == manual.uid)
         #expect(controller.preferences.inputPriorityUIDs == [preferred.uid, manual.uid])
     }
+
+    @MainActor
+    @Test func outputVolumePassesThroughControllerAndClampsInHardwareLayer() throws {
+        let speakers = device(uid: "speakers", name: "Speakers", input: false, output: true)
+        let hardware = MockAudioHardware(devices: [speakers])
+        hardware.outputLevelValue = OutputLevel(volume: 0.4, isMuted: false)
+        let controller = AudioFallbackController(
+            hardware: hardware,
+            preferenceStore: try preferenceStore(AudioFallbackPreferences())
+        )
+
+        #expect(controller.outputVolume() == 0.4)
+        #expect(controller.currentOutputVolume == 0.4)
+
+        controller.setOutputVolume(0.75)
+
+        #expect(hardware.setOutputVolumeCalls == [0.75])
+        #expect(controller.currentOutputVolume == 0.75)
+        #expect(controller.currentOutputLevel == OutputLevel(volume: 0.75, isMuted: false))
+    }
+
+    @MainActor
+    @Test func outputLevelTreatsZeroVolumeAndMuteAsSilent() throws {
+        let speakers = device(uid: "speakers", name: "Speakers", input: false, output: true)
+        let hardware = MockAudioHardware(devices: [speakers])
+        hardware.outputLevelValue = OutputLevel(volume: 0, isMuted: false)
+        let controller = AudioFallbackController(
+            hardware: hardware,
+            preferenceStore: try preferenceStore(AudioFallbackPreferences())
+        )
+
+        #expect(controller.outputVolume() == 0)
+        #expect(controller.currentOutputLevel?.isSilent == true)
+
+        hardware.outputLevelValue = OutputLevel(volume: 0.1, isMuted: true)
+
+        #expect(controller.outputVolume() == 0.1)
+        #expect(controller.currentOutputLevel?.isSilent == true)
+
+        controller.setOutputVolume(0.1)
+
+        #expect(controller.currentOutputLevel == OutputLevel(volume: 0.1, isMuted: false))
+    }
 }
 
 private func device(uid: String, name: String, input: Bool, output: Bool) -> ManagedAudioDevice {
@@ -425,6 +468,8 @@ private struct SetDefaultCall: Equatable {
 private final class MockAudioHardware: AudioHardwareManaging {
     var storedDevices: [ManagedAudioDevice]
     var setDefaultCalls: [SetDefaultCall] = []
+    var outputLevelValue: OutputLevel?
+    var setOutputVolumeCalls: [Float] = []
 
     init(devices: [ManagedAudioDevice]) {
         self.storedDevices = devices
@@ -440,6 +485,14 @@ private final class MockAudioHardware: AudioHardwareManaging {
 
     func setDefaultDevice(uid: String, for kind: DeviceKind) throws {
         setDefaultCalls.append(SetDefaultCall(uid: uid, kind: kind))
+    }
+
+    func outputLevel() throws -> OutputLevel? {
+        outputLevelValue
+    }
+
+    func setOutputVolume(_ volume: Float) throws {
+        setOutputVolumeCalls.append(volume)
     }
 
     func observeHardwareChanges(_ callback: @escaping @Sendable () -> Void) {}
