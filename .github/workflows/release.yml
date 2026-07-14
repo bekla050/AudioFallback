@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    env:
+      SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release-Konfiguration prüfen
+        run: scripts/validate-release.sh "$GITHUB_REF_NAME"
+
+      - name: Secrets prüfen
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD MACOS_SIGN_IDENTITY \
+            NOTARY_APPLE_ID NOTARY_TEAM_ID NOTARY_PASSWORD SPARKLE_PRIVATE_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Erforderliches Secret fehlt: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Tests
+        run: swift test
+
+      - name: Release-App bauen
+        run: scripts/build-app.sh
+
+      - name: Release-Metadaten setzen
+        run: |
+          echo "APP_VERSION=$(scripts/build-app.sh --print-version)" >> "$GITHUB_ENV"
+          echo "BUILD_VERSION=$(scripts/build-app.sh --print-build-version)" >> "$GITHUB_ENV"
+          echo "DMG_NAME=$(scripts/build-app.sh --print-dmg-name)" >> "$GITHUB_ENV"
+          echo "APP_PATH=$GITHUB_WORKSPACE/.build/release/AudioFallback.app" >> "$GITHUB_ENV"
+
+      - name: Signing-Zertifikat importieren
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" \
+            -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+      - name: App von innen nach außen signieren
+        run: |
+          set -euo pipefail
+          sign() {
+            codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$1"
+          }
+          {
+            find "$APP_PATH/Contents" -type d \( -name '*.app' -o -name '*.xpc' -o -name '*.framework' \)
+            find "$APP_PATH/Contents" -type f \
+              -exec sh -c 'file -b "$1" | grep -q "Mach-O"' _ {} \; -print
+          } | awk -F/ '{ print NF "\t" $0 }' | sort -rn | cut -f2- | \
+            while IFS= read -r item; do sign "$item"; done
+          sign "$APP_PATH"
+          codesign --verify --strict --verbose=2 "$APP_PATH"
+
+      - name: DMG bauen und signieren
+        run: |
+          set -euo pipefail
+          DMG_PATH="$GITHUB_WORKSPACE/dist/$DMG_NAME"
+          scripts/build-dmg.sh "$APP_PATH" "$DMG_PATH"
+          codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG_PATH"
+          echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
+
+      - name: Notarisieren und stapeln
+        run: |
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
+            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
+            --password "${{ secrets.NOTARY_PASSWORD }}" --wait
+          xcrun stapler staple "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+
+      - name: Signierten Appcast erzeugen
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          ARCHIVES="$RUNNER_TEMP/appcast"
+          mkdir -p "$ARCHIVES"
+          cp "$DMG_PATH" "$ARCHIVES/$DMG_NAME"
+          GENERATE_APPCAST="$(find .build/artifacts -type f \
+            -path '*/Sparkle/bin/generate_appcast' -print -quit)"
+          if [[ -z "$GENERATE_APPCAST" ]]; then
+            echo "generate_appcast wurde nicht gefunden" >&2
+            exit 1
+          fi
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | "$GENERATE_APPCAST" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/" \
+            --full-release-notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
+            --maximum-deltas 0 \
+            -o "$GITHUB_WORKSPACE/appcast.xml" "$ARCHIVES"
+          xmllint --noout "$GITHUB_WORKSPACE/appcast.xml"
+          grep -Fq "sparkle:edSignature" "$GITHUB_WORKSPACE/appcast.xml"
+          grep -Fq "releases/download/$GITHUB_REF_NAME/$DMG_NAME" "$GITHUB_WORKSPACE/appcast.xml"
+
+      - name: Release-Entwurf mit Assets anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$DMG_PATH" "$GITHUB_WORKSPACE/appcast.xml" \
+            --verify-tag --draft --generate-notes --title "AudioFallback $APP_VERSION"
+
+      - name: Release veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest

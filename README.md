@@ -48,6 +48,12 @@ The app bundle is written to:
 .build/release/AudioFallback.app
 ```
 
+## Release
+
+Version tags in the form `vX.Y.Z` drive signed and notarized GitHub releases.
+The required repository setup and release procedure are documented in
+[docs/sparkle-release.md](docs/sparkle-release.md).
+
 ## Current Behavior
 
 - Input and output priorities are independent.
