@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback이 로그인 항목 설정을 업데이트할 수 없습니다: %@";
 "loginItem.errorTitle" = "로그인 항목을 업데이트할 수 없음";
 "menu.autoSwitch" = "자동 전환";
+"menu.checkForUpdates" = "업데이트 확인…";
 "menu.moreDevices" = "더 보기...";
 "menu.preferences" = "설정...";
 "menu.quit" = "종료";
 "settings.autoSwitch" = "사용 가능한 최적의 기기로 자동 전환";
+"settings.automaticUpdateChecks" = "자동으로 업데이트 확인";
 "settings.launchAtLogin" = "로그인할 때 AudioFallback 시작";
 "settings.refreshDevices" = "기기 새로 고침";

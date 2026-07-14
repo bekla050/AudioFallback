@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback n’a pas pu modifier le réglage d’ouverture au démarrage : %@";
 "loginItem.errorTitle" = "Impossible de modifier l’ouverture au démarrage";
 "menu.autoSwitch" = "Basculer automatiquement";
+"menu.checkForUpdates" = "Rechercher les mises à jour…";
 "menu.moreDevices" = "Plus...";
 "menu.preferences" = "Réglages...";
 "menu.quit" = "Quitter";
 "settings.autoSwitch" = "Basculer automatiquement vers le meilleur appareil disponible";
+"settings.automaticUpdateChecks" = "Rechercher automatiquement les mises à jour";
 "settings.launchAtLogin" = "Lancer AudioFallback à l’ouverture de session";
 "settings.refreshDevices" = "Actualiser les appareils";

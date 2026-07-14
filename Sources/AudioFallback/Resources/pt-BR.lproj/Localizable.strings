@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "O AudioFallback não pôde atualizar o ajuste de início de sessão: %@";
 "loginItem.errorTitle" = "Não foi possível atualizar o início de sessão";
 "menu.autoSwitch" = "Alternar automaticamente";
+"menu.checkForUpdates" = "Buscar atualizações…";
 "menu.moreDevices" = "Mais...";
 "menu.preferences" = "Ajustes...";
 "menu.quit" = "Encerrar";
 "settings.autoSwitch" = "Alternar automaticamente para o melhor dispositivo disponível";
+"settings.automaticUpdateChecks" = "Buscar atualizações automaticamente";
 "settings.launchAtLogin" = "Iniciar o AudioFallback ao iniciar sessão";
 "settings.refreshDevices" = "Atualizar dispositivos";

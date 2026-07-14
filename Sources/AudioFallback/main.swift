@@ -4,13 +4,31 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let controller = AudioFallbackController()
+    private var updaterController: UpdaterController?
     private var statusMenuController: StatusMenuController?
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller.start()
-        statusMenuController = StatusMenuController(controller: controller)
+        let updaterController = UpdaterController(startAutomatically: true)
+        self.updaterController = updaterController
+        statusMenuController = StatusMenuController(
+            controller: controller,
+            updaterController: updaterController
+        )
+
+        updaterController.$canCheckForUpdates
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.statusMenuController?.rebuildMenu() }
+            .store(in: &cancellables)
+
+        updaterController.$automaticallyChecksForUpdates
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.statusMenuController?.rebuildMenu() }
+            .store(in: &cancellables)
 
         // @Published emits in willSet, before the stored property is updated.
         // rebuildMenu() reads the controller state back, so deliver on the next

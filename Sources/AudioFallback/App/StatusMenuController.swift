@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class StatusMenuController: NSObject {
     private let controller: AudioFallbackController
+    private let updaterController: UpdaterController
     private let statusItem: NSStatusItem
     private let logger = Logger(subsystem: "app.audiofallback", category: "StatusMenu")
     private let statusIconHeight: CGFloat = 21.6
@@ -15,8 +16,9 @@ final class StatusMenuController: NSObject {
     private let statusIconMarkerY: CGFloat = 5.3
     private var settingsWindow: NSWindow?
 
-    init(controller: AudioFallbackController) {
+    init(controller: AudioFallbackController, updaterController: UpdaterController) {
         self.controller = controller
+        self.updaterController = updaterController
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         updateStatusItemIcon()
@@ -24,9 +26,13 @@ final class StatusMenuController: NSObject {
     }
 
     func rebuildMenu() {
+        updateStatusItemIcon()
+        statusItem.menu = makeMenu()
+    }
+
+    func makeMenu() -> NSMenu {
         let menu = NSMenu()
         menu.delegate = self
-        updateStatusItemIcon()
 
         menu.addItem(NSMenuItem(title: "AudioFallback", action: nil, keyEquivalent: ""))
         menu.addItem(volumeMenuItem())
@@ -56,12 +62,21 @@ final class StatusMenuController: NSObject {
         refreshItem.target = self
         menu.addItem(refreshItem)
 
+        let updateItem = NSMenuItem(
+            title: L10n.string("menu.checkForUpdates"),
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        updateItem.isEnabled = updaterController.canCheckForUpdates
+        menu.addItem(updateItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: L10n.string("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
 
-        statusItem.menu = menu
+        return menu
     }
 
     private func updateStatusItemIcon() {
@@ -222,6 +237,10 @@ final class StatusMenuController: NSObject {
         rebuildMenu()
     }
 
+    @objc private func checkForUpdates() {
+        updaterController.checkForUpdates()
+    }
+
     @objc private func activateFromMenu(_ sender: NSMenuItem) {
         guard let selection = sender.representedObject as? MenuSelection else {
             return
@@ -243,7 +262,10 @@ final class StatusMenuController: NSObject {
             return
         }
 
-        let window = SettingsWindowFactory.makeWindow(controller: controller)
+        let window = SettingsWindowFactory.makeWindow(
+            controller: controller,
+            updaterController: updaterController
+        )
         logSettingsWindowEvent("Creating settings window")
         window.center()
         window.delegate = self
@@ -264,6 +286,7 @@ enum SettingsWindowFactory {
     @MainActor
     static func makeWindow(
         controller: AudioFallbackController,
+        updaterController: UpdaterController,
         layoutObserver: SettingsLayoutObserver? = nil
     ) -> NSWindow {
         let contentRect = NSRect(origin: .zero, size: contentSize)
@@ -275,6 +298,7 @@ enum SettingsWindowFactory {
         )
         let hostingView = SettingsHostingView(rootView: SettingsView(
             controller: controller,
+            updaterController: updaterController,
             layoutObserver: layoutObserver
         ))
         hostingView.sizingOptions = []

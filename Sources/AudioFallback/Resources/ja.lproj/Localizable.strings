@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback はログイン項目の設定を更新できませんでした: %@";
 "loginItem.errorTitle" = "ログイン項目を更新できませんでした";
 "menu.autoSwitch" = "自動切り替え";
+"menu.checkForUpdates" = "アップデートを確認…";
 "menu.moreDevices" = "その他...";
 "menu.preferences" = "設定...";
 "menu.quit" = "終了";
 "settings.autoSwitch" = "利用可能な最適なデバイスへ自動的に切り替える";
+"settings.automaticUpdateChecks" = "アップデートを自動的に確認";
 "settings.launchAtLogin" = "ログイン時に AudioFallback を起動";
 "settings.refreshDevices" = "デバイスを更新";

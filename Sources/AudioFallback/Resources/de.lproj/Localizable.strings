@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback konnte die Einstellung für den Systemstart nicht ändern: %@";
 "loginItem.errorTitle" = "Systemstart konnte nicht geändert werden";
 "menu.autoSwitch" = "Automatisch umschalten";
+"menu.checkForUpdates" = "Nach Updates suchen …";
 "menu.moreDevices" = "Weitere ...";
 "menu.preferences" = "Einstellungen...";
 "menu.quit" = "Beenden";
 "settings.autoSwitch" = "Automatisch auf das beste verfügbare Gerät umschalten";
+"settings.automaticUpdateChecks" = "Automatisch nach Updates suchen";
 "settings.launchAtLogin" = "AudioFallback beim Anmelden starten";
 "settings.refreshDevices" = "Geräte aktualisieren";

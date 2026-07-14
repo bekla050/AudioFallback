@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback non ha potuto aggiornare l’impostazione di avvio al login: %@";
 "loginItem.errorTitle" = "Impossibile aggiornare l’avvio al login";
 "menu.autoSwitch" = "Cambia automaticamente";
+"menu.checkForUpdates" = "Controlla aggiornamenti…";
 "menu.moreDevices" = "Altro...";
 "menu.preferences" = "Impostazioni...";
 "menu.quit" = "Esci";
 "settings.autoSwitch" = "Passa automaticamente al miglior dispositivo disponibile";
+"settings.automaticUpdateChecks" = "Controlla automaticamente gli aggiornamenti";
 "settings.launchAtLogin" = "Avvia AudioFallback al login";
 "settings.refreshDevices" = "Aggiorna dispositivi";

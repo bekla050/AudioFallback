@@ -6,9 +6,11 @@ import Testing
 struct SettingsWindowLayoutTests {
     @Test func settingsWindowUsesFixedContentMinimumAndKeepsHeaderTopPinned() throws {
         let controller = try makeController()
+        let updaterController = UpdaterController(driver: TestUpdateDriver())
         let layoutObserver = SettingsLayoutObserver()
         let window = SettingsWindowFactory.makeWindow(
             controller: controller,
+            updaterController: updaterController,
             layoutObserver: layoutObserver
         )
         defer { window.close() }
@@ -27,10 +29,15 @@ struct SettingsWindowLayoutTests {
 
         let initialRootFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.root))
         let initialHeaderFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.headerOptions))
+        let automaticUpdateChecksFrame = try #require(
+            layoutObserver.frame(for: SettingsAccessibilityID.automaticUpdateChecks)
+        )
         let initialListsFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceLists))
         let initialInputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .input)))
         let initialOutputScrollFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .output)))
         #expect(abs(initialRootFrame.maxY - initialContentSize.height) < 0.5)
+        #expect(automaticUpdateChecksFrame.minY >= initialHeaderFrame.minY)
+        #expect(automaticUpdateChecksFrame.maxY <= initialHeaderFrame.maxY)
         #expect(abs(initialListsFrame.maxY - initialContentSize.height) < 0.5)
         #expect(abs(initialInputScrollFrame.maxY - initialContentSize.height) < 0.5)
         #expect(abs(initialOutputScrollFrame.maxY - initialContentSize.height) < 0.5)

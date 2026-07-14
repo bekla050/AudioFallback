@@ -4,12 +4,18 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject var controller: AudioFallbackController
+    @ObservedObject var updaterController: UpdaterController
     let layoutObserver: SettingsLayoutObserver?
     @State private var launchAtLoginEnabled = LoginItemManager.isEnabled
     @State private var loginItemError: String?
 
-    init(controller: AudioFallbackController, layoutObserver: SettingsLayoutObserver? = nil) {
+    init(
+        controller: AudioFallbackController,
+        updaterController: UpdaterController,
+        layoutObserver: SettingsLayoutObserver? = nil
+    ) {
         self.controller = controller
+        self.updaterController = updaterController
         self.layoutObserver = layoutObserver
     }
 
@@ -72,6 +78,16 @@ struct SettingsView: View {
                     setLaunchAtLogin(newValue)
                 }
             ))
+
+            Toggle(
+                L10n.string("settings.automaticUpdateChecks"),
+                isOn: Binding(
+                    get: { updaterController.automaticallyChecksForUpdates },
+                    set: { updaterController.setAutomaticallyChecksForUpdates($0) }
+                )
+            )
+            .accessibilityIdentifier(SettingsAccessibilityID.automaticUpdateChecks)
+            .layoutProbe(SettingsAccessibilityID.automaticUpdateChecks, observer: layoutObserver)
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -116,6 +132,7 @@ struct SettingsView: View {
 enum SettingsAccessibilityID {
     static let root = "settings.root"
     static let headerOptions = "settings.headerOptions"
+    static let automaticUpdateChecks = "settings.automaticUpdateChecks"
     static let deviceLists = "settings.deviceLists"
 
     static func deviceScrollView(for kind: DeviceKind) -> String {

@@ -10,9 +10,11 @@
 "loginItem.errorMessage" = "AudioFallback kon de instelling voor openen bij inloggen niet bijwerken: %@";
 "loginItem.errorTitle" = "Openen bij inloggen kon niet worden bijgewerkt";
 "menu.autoSwitch" = "Automatisch wisselen";
+"menu.checkForUpdates" = "Zoek naar updates…";
 "menu.moreDevices" = "Meer...";
 "menu.preferences" = "Instellingen...";
 "menu.quit" = "Stop";
 "settings.autoSwitch" = "Automatisch wisselen naar het beste beschikbare apparaat";
+"settings.automaticUpdateChecks" = "Automatisch zoeken naar updates";
 "settings.launchAtLogin" = "Start AudioFallback wanneer je inlogt";
 "settings.refreshDevices" = "Apparaten vernieuwen";
