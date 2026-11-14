@@ -1,8 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
-APP_VERSION="0.3.0"
-BUILD_VERSION="5"
+APP_VERSION="0.4.0"
+BUILD_VERSION="6"
 DMG_NAME="AudioFallback-${APP_VERSION}.dmg"
 
 case "${1:-}" in

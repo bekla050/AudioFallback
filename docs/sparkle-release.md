@@ -31,7 +31,7 @@ Vor dem Tag-Push wird die Release-Konfiguration lokal geprüft:
 ```sh
 swift test
 scripts/build-app.sh
-scripts/validate-release.sh v0.3.0
+scripts/validate-release.sh v0.4.0
 ```
 
 ## Release veröffentlichen
@@ -39,8 +39,8 @@ scripts/validate-release.sh v0.3.0
 Nach einem Review des Release-Commits wird der passende Tag erstellt und nach `origin` gepusht:
 
 ```sh
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 Die Pipeline legt den GitHub-Release zunächst als Entwurf an. Erst nachdem DMG und `appcast.xml` erfolgreich erzeugt und hochgeladen wurden, wird der Release veröffentlicht und als `latest` markiert. Sparkle lädt den stabilen Feed über `releases/latest/download/appcast.xml`.
