@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Could Not Update Login Item";
 "menu.autoSwitch" = "Switch Automatically";
 "menu.checkForUpdates" = "Check for Updates…";
+"menu.manualOverrideHint" = "Selected manually – priority order paused\nuntil the device is disconnected";
 "menu.moreDevices" = "More...";
 "menu.preferences" = "Settings...";
 "menu.quit" = "Quit";
+"menu.returnToPriority" = "Return to Priority Order: %@";
+"menu.volume" = "Volume";
 "settings.autoSwitch" = "Automatically switch to the best available device";
 "settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.launchAtLogin" = "Start AudioFallback when you log in";

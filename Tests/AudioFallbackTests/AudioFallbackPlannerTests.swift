@@ -398,6 +398,114 @@ struct AudioFallbackPlannerTests {
         #expect(controller.preferences.inputPriorityUIDs == [preferred.uid, manual.uid])
     }
 
+    @Test func priorityDeviceIgnoresManualSelection() {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let preferences = AudioFallbackPreferences(
+            inputPriorityUIDs: ["missing-mic", preferred.uid, manual.uid],
+            manualInputUID: manual.uid
+        )
+
+        let selected = AudioFallbackPlanner.priorityDevice(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [manual, preferred]
+        )
+
+        #expect(selected == preferred)
+    }
+
+    @Test func manualOverrideDeviceReportsManualDeviceThatDiffersFromPriority() {
+        let preferred = device(uid: "preferred-speakers", name: "Preferred Speakers", input: false, output: true)
+        let manual = device(uid: "manual-speakers", name: "Manual Speakers", input: false, output: true)
+        let preferences = AudioFallbackPreferences(
+            outputPriorityUIDs: [preferred.uid, manual.uid],
+            manualOutputUID: manual.uid
+        )
+
+        #expect(AudioFallbackPlanner.manualOverrideDevice(
+            for: .output,
+            preferences: preferences,
+            availableDevices: [preferred, manual]
+        ) == manual)
+        #expect(AudioFallbackPlanner.manualOverrideDevice(
+            for: .input,
+            preferences: preferences,
+            availableDevices: [preferred, manual]
+        ) == nil)
+    }
+
+    @Test func manualOverrideDeviceIsNilWithoutEffectiveOverride() {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let available = [preferred, manual]
+        let priority = [preferred.uid, manual.uid]
+
+        let noManual = AudioFallbackPreferences(inputPriorityUIDs: priority)
+        let manualIsPriority = AudioFallbackPreferences(inputPriorityUIDs: priority, manualInputUID: preferred.uid)
+        let manualUnavailable = AudioFallbackPreferences(inputPriorityUIDs: priority, manualInputUID: "missing-mic")
+        let autoSwitchDisabled = AudioFallbackPreferences(
+            autoSwitchEnabled: false,
+            inputPriorityUIDs: priority,
+            manualInputUID: manual.uid
+        )
+
+        for preferences in [noManual, manualIsPriority, manualUnavailable, autoSwitchDisabled] {
+            #expect(AudioFallbackPlanner.manualOverrideDevice(
+                for: .input,
+                preferences: preferences,
+                availableDevices: available
+            ) == nil)
+        }
+    }
+
+    @MainActor
+    @Test func clearingManualOverrideReturnsToPriorityDevice() throws {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let hardware = MockAudioHardware(devices: [preferred, manual])
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                inputPriorityUIDs: [preferred.uid, manual.uid],
+                manualInputUID: manual.uid
+            )
+        )
+        let controller = AudioFallbackController(hardware: hardware, preferenceStore: store)
+        controller.refresh()
+
+        #expect(controller.currentInput == manual)
+        #expect(controller.priorityDevice(for: .input) == preferred)
+        #expect(controller.manualOverrideDevice(for: .input) == manual)
+
+        controller.clearManualOverride(for: .input)
+
+        #expect(controller.preferences.manualInputUID == nil)
+        #expect(controller.manualOverrideDevice(for: .input) == nil)
+        #expect(controller.currentInput == preferred)
+        #expect(hardware.setDefaultCalls.last == SetDefaultCall(uid: preferred.uid, kind: .input))
+    }
+
+    @MainActor
+    @Test func menuActivationOfPriorityDeviceClearsManualSelection() throws {
+        let preferred = device(uid: "preferred-mic", name: "Preferred Mic", input: true, output: false)
+        let manual = device(uid: "manual-mic", name: "Manual Mic", input: true, output: false)
+        let hardware = MockAudioHardware(devices: [preferred, manual])
+        let store = try preferenceStore(
+            AudioFallbackPreferences(
+                inputPriorityUIDs: [preferred.uid, manual.uid],
+                manualInputUID: manual.uid
+            )
+        )
+        let controller = AudioFallbackController(hardware: hardware, preferenceStore: store)
+        controller.refresh()
+
+        controller.activateDeviceFromMenu(kind: .input, uid: preferred.uid)
+
+        #expect(controller.preferences.manualInputUID == nil)
+        #expect(controller.currentInput == preferred)
+        #expect(controller.manualOverrideDevice(for: .input) == nil)
+    }
+
     @MainActor
     @Test func outputVolumePassesThroughControllerAndClampsInHardwareLayer() throws {
         let speakers = device(uid: "speakers", name: "Speakers", input: false, output: true)

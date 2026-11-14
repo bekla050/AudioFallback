@@ -117,8 +117,9 @@ final class AudioFallbackController: ObservableObject {
                 updateCurrentOutputLevel(try hardware.outputLevel())
             }
 
+            // Choosing the device the priority list would pick anyway is no override.
             var updated = preferences
-            updated.setManualUID(uid, for: kind)
+            updated.setManualUID(uid == priorityDevice(for: kind)?.uid ? nil : uid, for: kind)
             if updated != preferences {
                 preferences = updated
             }
@@ -126,6 +127,33 @@ final class AudioFallbackController: ObservableObject {
         } catch {
             logger.error("Could not set \(kind.title, privacy: .public) device: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    /// Clears the manual menu selection; `applyIfNeeded` then switches back to the priority device.
+    func clearManualOverride(for kind: DeviceKind) {
+        guard preferences.manualUID(for: kind) != nil else {
+            return
+        }
+
+        var updated = preferences
+        updated.setManualUID(nil, for: kind)
+        preferences = updated
+    }
+
+    func priorityDevice(for kind: DeviceKind) -> ManagedAudioDevice? {
+        AudioFallbackPlanner.priorityDevice(
+            for: kind,
+            preferences: preferences,
+            availableDevices: devices
+        )
+    }
+
+    func manualOverrideDevice(for kind: DeviceKind) -> ManagedAudioDevice? {
+        AudioFallbackPlanner.manualOverrideDevice(
+            for: kind,
+            preferences: preferences,
+            availableDevices: devices
+        )
     }
 
     func orderedDevices(for kind: DeviceKind) -> [ManagedAudioDevice] {

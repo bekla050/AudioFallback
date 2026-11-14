@@ -13,10 +13,42 @@ struct AudioFallbackPlanner {
             return manualDevice
         }
 
+        return priorityDevice(for: kind, preferences: preferences, availableDevices: availableDevices)
+    }
+
+    /// First available device of the priority list, ignoring any manual menu selection.
+    static func priorityDevice(
+        for kind: DeviceKind,
+        preferences: AudioFallbackPreferences,
+        availableDevices: [ManagedAudioDevice]
+    ) -> ManagedAudioDevice? {
+        let devicesByUID = availableDevicesByUID(for: kind, from: availableDevices)
+
         return uniqueUIDs(preferences.priorityUIDs(for: kind))
             .lazy
             .compactMap { devicesByUID[$0] }
             .first
+    }
+
+    /// The manually selected device while it actually overrides the priority list:
+    /// auto switching is on, the device is available, and it is not the priority device.
+    static func manualOverrideDevice(
+        for kind: DeviceKind,
+        preferences: AudioFallbackPreferences,
+        availableDevices: [ManagedAudioDevice]
+    ) -> ManagedAudioDevice? {
+        guard preferences.autoSwitchEnabled,
+              let manualUID = preferences.manualUID(for: kind),
+              let manualDevice = availableDevicesByUID(for: kind, from: availableDevices)[manualUID] else {
+            return nil
+        }
+
+        let priority = priorityDevice(for: kind, preferences: preferences, availableDevices: availableDevices)
+        guard priority?.uid != manualDevice.uid else {
+            return nil
+        }
+
+        return manualDevice
     }
 
     static func mergedPriorityUIDs(

@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Systemstart konnte nicht geändert werden";
 "menu.autoSwitch" = "Automatisch umschalten";
 "menu.checkForUpdates" = "Nach Updates suchen …";
+"menu.manualOverrideHint" = "Manuell gewählt – Reihenfolge pausiert,\nbis das Gerät getrennt wird";
 "menu.moreDevices" = "Weitere ...";
 "menu.preferences" = "Einstellungen...";
 "menu.quit" = "Beenden";
+"menu.returnToPriority" = "Zurück zur Reihenfolge: %@";
+"menu.volume" = "Lautstärke";
 "settings.autoSwitch" = "Automatisch auf das beste verfügbare Gerät umschalten";
 "settings.automaticUpdateChecks" = "Automatisch nach Updates suchen";
 "settings.launchAtLogin" = "AudioFallback beim Anmelden starten";

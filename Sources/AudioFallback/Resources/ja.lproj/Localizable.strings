@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "ログイン項目を更新できませんでした";
 "menu.autoSwitch" = "自動切り替え";
 "menu.checkForUpdates" = "アップデートを確認…";
+"menu.manualOverrideHint" = "手動で選択 – デバイスが切断されるまで\n優先順位は一時停止中";
 "menu.moreDevices" = "その他...";
 "menu.preferences" = "設定...";
 "menu.quit" = "終了";
+"menu.returnToPriority" = "優先順位に戻す: %@";
+"menu.volume" = "音量";
 "settings.autoSwitch" = "利用可能な最適なデバイスへ自動的に切り替える";
 "settings.automaticUpdateChecks" = "アップデートを自動的に確認";
 "settings.launchAtLogin" = "ログイン時に AudioFallback を起動";

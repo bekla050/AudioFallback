@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Impossibile aggiornare l’avvio al login";
 "menu.autoSwitch" = "Cambia automaticamente";
 "menu.checkForUpdates" = "Controlla aggiornamenti…";
+"menu.manualOverrideHint" = "Scelto manualmente – ordine sospeso\nfinché il dispositivo non viene scollegato";
 "menu.moreDevices" = "Altro...";
 "menu.preferences" = "Impostazioni...";
 "menu.quit" = "Esci";
+"menu.returnToPriority" = "Torna all’ordine: %@";
+"menu.volume" = "Volume";
 "settings.autoSwitch" = "Passa automaticamente al miglior dispositivo disponibile";
 "settings.automaticUpdateChecks" = "Controlla automaticamente gli aggiornamenti";
 "settings.launchAtLogin" = "Avvia AudioFallback al login";

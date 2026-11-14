@@ -15,26 +15,46 @@ final class StatusMenuController: NSObject {
     private let statusIconMarkerPointSize: CGFloat = 10.35
     private let statusIconMarkerY: CGFloat = 5.3
     private var settingsWindow: NSWindow?
+    // The status item keeps this one menu for its whole lifetime. Replacing it or
+    // changing its items while it is tracking can close it, e.g. after the slider was used.
+    private let menu = NSMenu()
+    private var isMenuOpen = false
+    private var volumeView: VolumeMenuItemView?
+
+    var statusItemMenu: NSMenu? {
+        statusItem.menu
+    }
 
     init(controller: AudioFallbackController, updaterController: UpdaterController) {
         self.controller = controller
         self.updaterController = updaterController
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        updateStatusItemIcon()
+        menu.delegate = self
+        statusItem.menu = menu
         rebuildMenu()
     }
 
+    /// Updates icon and menu content. While the menu is open only the icon and the
+    /// slider value follow; the item structure is rebuilt in `menuNeedsUpdate(_:)`.
     func rebuildMenu() {
         updateStatusItemIcon()
-        statusItem.menu = makeMenu()
+        guard !isMenuOpen else {
+            volumeView?.updateVolume(controller.currentOutputVolume)
+            return
+        }
+        rebuildMenuItems()
     }
 
     func makeMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.delegate = self
+        rebuildMenu()
+        return menu
+    }
 
-        menu.addItem(NSMenuItem(title: "AudioFallback", action: nil, keyEquivalent: ""))
+    private func rebuildMenuItems() {
+        menu.removeAllItems()
+
+        menu.addItem(.sectionHeader(title: L10n.string("menu.volume")))
         menu.addItem(volumeMenuItem())
         menu.addItem(.separator())
 
@@ -75,8 +95,6 @@ final class StatusMenuController: NSObject {
 
         let quitItem = NSMenuItem(title: L10n.string("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
-
-        return menu
     }
 
     private func updateStatusItemIcon() {
@@ -86,10 +104,12 @@ final class StatusMenuController: NSObject {
 
     private func volumeMenuItem() -> NSMenuItem {
         let item = NSMenuItem()
-        item.view = VolumeMenuItemView(volume: controller.currentOutputVolume) { [weak self] volume in
+        let view = VolumeMenuItemView(volume: controller.currentOutputVolume) { [weak self] volume in
             self?.controller.setOutputVolume(volume)
             self?.updateStatusItemIcon()
         }
+        volumeView = view
+        item.view = view
         return item
     }
 
@@ -166,9 +186,7 @@ final class StatusMenuController: NSObject {
     }
 
     private func addDeviceSection(to menu: NSMenu, title: String, kind: DeviceKind) {
-        let headerItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        headerItem.isEnabled = false
-        menu.addItem(headerItem)
+        menu.addItem(.sectionHeader(title: title))
 
         let devices = controller.orderedDevices(for: kind)
         let currentUID = switch kind {
@@ -192,6 +210,8 @@ final class StatusMenuController: NSObject {
                 ))
             }
 
+            addManualOverrideItems(to: menu, kind: kind)
+
             let moreDevices = controller.moreMenuDevices(for: kind)
             if !moreDevices.isEmpty {
                 let moreItem = NSMenuItem(title: L10n.string("menu.moreDevices"), action: nil, keyEquivalent: "")
@@ -208,6 +228,31 @@ final class StatusMenuController: NSObject {
                 menu.addItem(moreItem)
             }
         }
+    }
+
+    private func addManualOverrideItems(to menu: NSMenu, kind: DeviceKind) {
+        guard controller.manualOverrideDevice(for: kind) != nil,
+              let priorityDevice = controller.priorityDevice(for: kind) else {
+            return
+        }
+
+        let hint = L10n.string("menu.manualOverrideHint")
+        let hintItem = NSMenuItem(title: hint, action: nil, keyEquivalent: "")
+        hintItem.attributedTitle = NSAttributedString(string: hint, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ])
+        hintItem.isEnabled = false
+        menu.addItem(hintItem)
+
+        let returnItem = NSMenuItem(
+            title: L10n.format("menu.returnToPriority", priorityDevice.name),
+            action: #selector(returnToPriority(_:)),
+            keyEquivalent: ""
+        )
+        returnItem.target = self
+        returnItem.representedObject = kind.rawValue
+        menu.addItem(returnItem)
     }
 
     private func deviceMenuItem(
@@ -247,6 +292,16 @@ final class StatusMenuController: NSObject {
         }
 
         controller.activateDeviceFromMenu(kind: selection.kind, uid: selection.uid)
+        rebuildMenu()
+    }
+
+    @objc private func returnToPriority(_ sender: NSMenuItem) {
+        guard let rawKind = sender.representedObject as? String,
+              let kind = DeviceKind(rawValue: rawKind) else {
+            return
+        }
+
+        controller.clearManualOverride(for: kind)
         rebuildMenu()
     }
 
@@ -393,8 +448,29 @@ private final class SettingsWindow: NSWindow {
 }
 
 extension StatusMenuController: NSMenuDelegate {
-    func menuWillOpen(_ menu: NSMenu) {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === self.menu, !isMenuOpen else {
+            return
+        }
+
         controller.refresh()
+        rebuildMenuItems()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu === self.menu else {
+            return
+        }
+
+        isMenuOpen = true
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        guard menu === self.menu else {
+            return
+        }
+
+        isMenuOpen = false
     }
 }
 
@@ -469,16 +545,20 @@ private final class VolumeMenuItemView: NSView {
         nil
     }
 
+    /// Follows external volume changes, but not while the user is dragging the slider.
+    func updateVolume(_ volume: Float?) {
+        guard NSEvent.pressedMouseButtons & 1 == 0 else {
+            return
+        }
+
+        showVolume(volume)
+    }
+
     private func configure(volume: Float?) {
         configureIconButton(lowButton, symbolName: "speaker.fill", action: #selector(decreaseVolume))
         configureIconButton(highButton, symbolName: "speaker.wave.3.fill", action: #selector(increaseVolume))
 
-        let isVolumeAvailable = volume != nil
-        lowButton.isEnabled = isVolumeAvailable
-        highButton.isEnabled = isVolumeAvailable
-
-        slider.doubleValue = Double(volume ?? 0)
-        slider.isEnabled = isVolumeAvailable
+        showVolume(volume)
         slider.target = self
         slider.action = #selector(sliderChanged(_:))
         slider.isContinuous = true
@@ -508,6 +588,15 @@ private final class VolumeMenuItemView: NSView {
         ])
     }
 
+    private func showVolume(_ volume: Float?) {
+        let isVolumeAvailable = volume != nil
+        lowButton.isEnabled = isVolumeAvailable
+        highButton.isEnabled = isVolumeAvailable
+
+        slider.doubleValue = Double(volume ?? 0)
+        slider.isEnabled = isVolumeAvailable
+    }
+
     private func configureIconButton(_ button: NSButton, symbolName: String, action: Selector) {
         let configuration = NSImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
@@ -516,6 +605,7 @@ private final class VolumeMenuItemView: NSView {
         button.bezelStyle = .regularSquare
         button.isBordered = false
         button.imagePosition = .imageOnly
+        button.refusesFirstResponder = true
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false

@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Openen bij inloggen kon niet worden bijgewerkt";
 "menu.autoSwitch" = "Automatisch wisselen";
 "menu.checkForUpdates" = "Zoek naar updates…";
+"menu.manualOverrideHint" = "Handmatig gekozen – volgorde gepauzeerd\ntot het apparaat wordt losgekoppeld";
 "menu.moreDevices" = "Meer...";
 "menu.preferences" = "Instellingen...";
 "menu.quit" = "Stop";
+"menu.returnToPriority" = "Terug naar volgorde: %@";
+"menu.volume" = "Volume";
 "settings.autoSwitch" = "Automatisch wisselen naar het beste beschikbare apparaat";
 "settings.automaticUpdateChecks" = "Automatisch zoeken naar updates";
 "settings.launchAtLogin" = "Start AudioFallback wanneer je inlogt";

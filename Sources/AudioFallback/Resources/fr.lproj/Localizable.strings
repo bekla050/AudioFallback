@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Impossible de modifier l’ouverture au démarrage";
 "menu.autoSwitch" = "Basculer automatiquement";
 "menu.checkForUpdates" = "Rechercher les mises à jour…";
+"menu.manualOverrideHint" = "Choisi manuellement – ordre suspendu\njusqu’à la déconnexion de l’appareil";
 "menu.moreDevices" = "Plus...";
 "menu.preferences" = "Réglages...";
 "menu.quit" = "Quitter";
+"menu.returnToPriority" = "Revenir à l’ordre : %@";
+"menu.volume" = "Volume";
 "settings.autoSwitch" = "Basculer automatiquement vers le meilleur appareil disponible";
 "settings.automaticUpdateChecks" = "Rechercher automatiquement les mises à jour";
 "settings.launchAtLogin" = "Lancer AudioFallback à l’ouverture de session";

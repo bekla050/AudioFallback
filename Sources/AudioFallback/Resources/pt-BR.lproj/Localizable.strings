@@ -11,9 +11,12 @@
 "loginItem.errorTitle" = "Não foi possível atualizar o início de sessão";
 "menu.autoSwitch" = "Alternar automaticamente";
 "menu.checkForUpdates" = "Buscar atualizações…";
+"menu.manualOverrideHint" = "Escolhido manualmente – ordem pausada\naté o dispositivo ser desconectado";
 "menu.moreDevices" = "Mais...";
 "menu.preferences" = "Ajustes...";
 "menu.quit" = "Encerrar";
+"menu.returnToPriority" = "Voltar à ordem: %@";
+"menu.volume" = "Volume";
 "settings.autoSwitch" = "Alternar automaticamente para o melhor dispositivo disponível";
 "settings.automaticUpdateChecks" = "Buscar atualizações automaticamente";
 "settings.launchAtLogin" = "Iniciar o AudioFallback ao iniciar sessão";
