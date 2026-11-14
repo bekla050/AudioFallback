@@ -81,16 +81,50 @@ struct SettingsWindowLayoutTests {
         #expect(abs(minimumOutputScrollFrame.maxY - minimumContentSize.height) < 0.5)
         #expect(minimumListsFrame.height <= initialListsFrame.height + 0.5)
 
+        let minimumPriorityHeaderFrame = try #require(layoutObserver.frame(for: SettingsAccessibilityID.priorityHeader))
+        #expect(minimumPriorityHeaderFrame.minY >= minimumHeaderFrame.maxY)
+        #expect(minimumPriorityHeaderFrame.maxY <= minimumListsFrame.minY)
     }
 
-    private func makeController() throws -> AudioFallbackController {
+    @Test func manualOverrideBannerSitsAboveAffectedListWithoutCoveringIt() throws {
+        let controller = try makeController(manualOutputUID: "speaker-2")
+        let layoutObserver = SettingsLayoutObserver()
+        let window = SettingsWindowFactory.makeWindow(
+            controller: controller,
+            updaterController: UpdaterController(driver: TestUpdateDriver()),
+            layoutObserver: layoutObserver
+        )
+        defer { window.close() }
+        forceLayout(window)
+
+        #expect(controller.manualOverrideDevice(for: .output)?.uid == "speaker-2")
+        #expect(layoutObserver.frame(for: SettingsAccessibilityID.manualOverrideBanner(for: .input)) == nil)
+        let bannerFrame = try #require(
+            layoutObserver.frame(for: SettingsAccessibilityID.manualOverrideBanner(for: .output))
+        )
+        let outputScrollFrame = try #require(
+            layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .output))
+        )
+        let inputScrollFrame = try #require(
+            layoutObserver.frame(for: SettingsAccessibilityID.deviceScrollView(for: .input))
+        )
+        #expect(bannerFrame.maxY <= outputScrollFrame.minY)
+        #expect(outputScrollFrame.minY > inputScrollFrame.minY)
+
+        // At the minimum window size the shortened list still shows at least three rows.
+        let threeRows: CGFloat = 3 * 36 + 2 * 6 + 12
+        #expect(outputScrollFrame.height >= threeRows)
+    }
+
+    private func makeController(manualOutputUID: String? = nil) throws -> AudioFallbackController {
         let microphone = layoutDevice(uid: "mic-1", name: "Microphone 1", input: true, output: false)
         let inputFallback = layoutDevice(uid: "mic-2", name: "Microphone 2", input: true, output: false)
         let speakers = layoutDevice(uid: "speaker-1", name: "Speakers 1", input: false, output: true)
         let outputFallback = layoutDevice(uid: "speaker-2", name: "Speakers 2", input: false, output: true)
         let preferences = AudioFallbackPreferences(
             inputPriorityUIDs: [microphone.uid, inputFallback.uid],
-            outputPriorityUIDs: [speakers.uid, outputFallback.uid]
+            outputPriorityUIDs: [speakers.uid, outputFallback.uid],
+            manualOutputUID: manualOutputUID
         )
         let controller = AudioFallbackController(
             hardware: LayoutMockAudioHardware(devices: [microphone, inputFallback, speakers, outputFallback]),

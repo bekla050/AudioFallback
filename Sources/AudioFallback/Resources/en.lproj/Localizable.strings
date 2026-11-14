@@ -2,6 +2,7 @@
 "devices.active" = "Active";
 "devices.dragHandleHelp" = "Drag to reorder";
 "devices.input" = "Microphones";
+"devices.manual" = "Manual";
 "devices.noneFound" = "No devices found";
 "devices.output" = "Speakers";
 "devices.removeUnavailable" = "Remove";
@@ -17,7 +18,11 @@
 "menu.quit" = "Quit";
 "menu.returnToPriority" = "Return to Priority Order: %@";
 "menu.volume" = "Volume";
+"settings.applyPriority" = "Apply Priority Order";
 "settings.autoSwitch" = "Automatically switch to the best available device";
 "settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.launchAtLogin" = "Start AudioFallback when you log in";
+"settings.manualOverrideBanner" = "“%@” selected manually – priority order paused";
+"settings.priorityExplanation" = "AudioFallback automatically uses the topmost available device. Drag devices to set the order. A selection in the menu bar menu only lasts until the device is disconnected.";
+"settings.priorityTitle" = "Device Priority";
 "settings.refreshDevices" = "Refresh Devices";

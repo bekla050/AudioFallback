@@ -2,6 +2,7 @@
 "devices.active" = "Actief";
 "devices.dragHandleHelp" = "Sleep om te ordenen";
 "devices.input" = "Microfoons";
+"devices.manual" = "Handmatig";
 "devices.noneFound" = "Geen apparaten gevonden";
 "devices.output" = "Luidsprekers";
 "devices.removeUnavailable" = "Verwijder";
@@ -17,7 +18,11 @@
 "menu.quit" = "Stop";
 "menu.returnToPriority" = "Terug naar volgorde: %@";
 "menu.volume" = "Volume";
+"settings.applyPriority" = "Volgorde toepassen";
 "settings.autoSwitch" = "Automatisch wisselen naar het beste beschikbare apparaat";
 "settings.automaticUpdateChecks" = "Automatisch zoeken naar updates";
 "settings.launchAtLogin" = "Start AudioFallback wanneer je inlogt";
+"settings.manualOverrideBanner" = "‘%@’ handmatig gekozen – volgorde gepauzeerd";
+"settings.priorityExplanation" = "AudioFallback gebruikt automatisch het bovenste beschikbare apparaat. Sleep apparaten om de volgorde te bepalen. Een keuze in het menubalkmenu geldt alleen totdat het apparaat wordt losgekoppeld.";
+"settings.priorityTitle" = "Apparaatvolgorde";
 "settings.refreshDevices" = "Apparaten vernieuwen";

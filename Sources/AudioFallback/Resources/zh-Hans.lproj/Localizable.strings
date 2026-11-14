@@ -2,6 +2,7 @@
 "devices.active" = "活跃";
 "devices.dragHandleHelp" = "拖移以重新排序";
 "devices.input" = "麦克风";
+"devices.manual" = "手动";
 "devices.noneFound" = "未找到设备";
 "devices.output" = "扬声器";
 "devices.removeUnavailable" = "移除";
@@ -17,7 +18,11 @@
 "menu.quit" = "退出";
 "menu.returnToPriority" = "恢复优先顺序：%@";
 "menu.volume" = "音量";
+"settings.applyPriority" = "应用优先顺序";
 "settings.autoSwitch" = "自动切换到最佳可用设备";
 "settings.automaticUpdateChecks" = "自动检查更新";
 "settings.launchAtLogin" = "登录时启动 AudioFallback";
+"settings.manualOverrideBanner" = "已手动选择“%@”，优先顺序已暂停";
+"settings.priorityExplanation" = "AudioFallback 会自动使用列表中最靠前的可用设备。拖移设备以设定顺序。在菜单栏菜单中所做的选择仅在设备断开连接前有效。";
+"settings.priorityTitle" = "设备优先顺序";
 "settings.refreshDevices" = "刷新设备";

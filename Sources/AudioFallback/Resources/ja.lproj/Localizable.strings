@@ -2,6 +2,7 @@
 "devices.active" = "使用中";
 "devices.dragHandleHelp" = "ドラッグして並べ替え";
 "devices.input" = "マイク";
+"devices.manual" = "手動";
 "devices.noneFound" = "デバイスが見つかりません";
 "devices.output" = "スピーカー";
 "devices.removeUnavailable" = "削除";
@@ -17,7 +18,11 @@
 "menu.quit" = "終了";
 "menu.returnToPriority" = "優先順位に戻す: %@";
 "menu.volume" = "音量";
+"settings.applyPriority" = "優先順位を適用";
 "settings.autoSwitch" = "利用可能な最適なデバイスへ自動的に切り替える";
 "settings.automaticUpdateChecks" = "アップデートを自動的に確認";
 "settings.launchAtLogin" = "ログイン時に AudioFallback を起動";
+"settings.manualOverrideBanner" = "「%@」を手動で選択中 – 優先順位は一時停止";
+"settings.priorityExplanation" = "AudioFallback は、利用可能なデバイスのうち一番上のものを自動的に使用します。デバイスをドラッグして順序を設定します。メニューバーのメニューでの選択は、そのデバイスが切断されるまで有効です。";
+"settings.priorityTitle" = "デバイスの優先順位";
 "settings.refreshDevices" = "デバイスを更新";

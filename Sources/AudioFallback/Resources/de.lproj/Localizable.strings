@@ -2,6 +2,7 @@
 "devices.active" = "Aktiv";
 "devices.dragHandleHelp" = "Ziehen, um die Reihenfolge zu ändern";
 "devices.input" = "Mikrofone";
+"devices.manual" = "Manuell";
 "devices.noneFound" = "Keine Geräte gefunden";
 "devices.output" = "Lautsprecher";
 "devices.removeUnavailable" = "Entfernen";
@@ -17,7 +18,11 @@
 "menu.quit" = "Beenden";
 "menu.returnToPriority" = "Zurück zur Reihenfolge: %@";
 "menu.volume" = "Lautstärke";
+"settings.applyPriority" = "Reihenfolge anwenden";
 "settings.autoSwitch" = "Automatisch auf das beste verfügbare Gerät umschalten";
 "settings.automaticUpdateChecks" = "Automatisch nach Updates suchen";
 "settings.launchAtLogin" = "AudioFallback beim Anmelden starten";
+"settings.manualOverrideBanner" = "„%@“ manuell gewählt – Reihenfolge pausiert";
+"settings.priorityExplanation" = "AudioFallback verwendet automatisch das oberste verfügbare Gerät. Ziehe Geräte, um die Reihenfolge festzulegen. Eine Auswahl im Menüleistenmenü gilt nur, bis das Gerät getrennt wird.";
+"settings.priorityTitle" = "Geräte-Reihenfolge";
 "settings.refreshDevices" = "Geräte aktualisieren";

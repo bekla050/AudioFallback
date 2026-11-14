@@ -22,13 +22,16 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerOptions
-                .padding(.top, 16)
+                .padding(.top, SettingsMetrics.outerPadding)
+
+            priorityHeader
+                .padding(.top, SettingsMetrics.sectionSpacing)
 
             deviceLists
-                .padding(.top, 32)
+                .padding(.top, SettingsMetrics.sectionSpacing - 4)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, SettingsMetrics.outerPadding)
         .frame(
             minWidth: 800,
             maxWidth: .infinity,
@@ -58,36 +61,33 @@ struct SettingsView: View {
     }
 
     private var headerOptions: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
+        GroupBox {
+            VStack(alignment: .leading, spacing: SettingsMetrics.itemSpacing) {
                 Toggle(L10n.string("settings.autoSwitch"), isOn: Binding(
                     get: { controller.preferences.autoSwitchEnabled },
                     set: { controller.preferences.autoSwitchEnabled = $0 }
                 ))
 
-                Spacer()
+                Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
+                    get: { launchAtLoginEnabled },
+                    set: { newValue in
+                        setLaunchAtLogin(newValue)
+                    }
+                ))
 
-                Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
-                    controller.refresh()
-                }
-            }
-
-            Toggle(L10n.string("settings.launchAtLogin"), isOn: Binding(
-                get: { launchAtLoginEnabled },
-                set: { newValue in
-                    setLaunchAtLogin(newValue)
-                }
-            ))
-
-            Toggle(
-                L10n.string("settings.automaticUpdateChecks"),
-                isOn: Binding(
-                    get: { updaterController.automaticallyChecksForUpdates },
-                    set: { updaterController.setAutomaticallyChecksForUpdates($0) }
+                Toggle(
+                    L10n.string("settings.automaticUpdateChecks"),
+                    isOn: Binding(
+                        get: { updaterController.automaticallyChecksForUpdates },
+                        set: { updaterController.setAutomaticallyChecksForUpdates($0) }
+                    )
                 )
-            )
-            .accessibilityIdentifier(SettingsAccessibilityID.automaticUpdateChecks)
-            .layoutProbe(SettingsAccessibilityID.automaticUpdateChecks, observer: layoutObserver)
+                .accessibilityIdentifier(SettingsAccessibilityID.automaticUpdateChecks)
+                .layoutProbe(SettingsAccessibilityID.automaticUpdateChecks, observer: layoutObserver)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -95,10 +95,34 @@ struct SettingsView: View {
         .layoutProbe(SettingsAccessibilityID.headerOptions, observer: layoutObserver)
     }
 
+    private var priorityHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: SettingsMetrics.sectionSpacing) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.string("settings.priorityTitle"))
+                    .font(.headline)
+
+                Text(L10n.string("settings.priorityExplanation"))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(L10n.string("settings.refreshDevices"), systemImage: "arrow.clockwise") {
+                controller.refresh()
+            }
+            .fixedSize()
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier(SettingsAccessibilityID.priorityHeader)
+        .layoutProbe(SettingsAccessibilityID.priorityHeader, observer: layoutObserver)
+    }
+
     private var deviceLists: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: SettingsMetrics.sectionSpacing) {
             PriorityListView(
                 title: L10n.string("devices.input"),
+                systemImage: "mic",
                 kind: .input,
                 currentUID: controller.currentInput?.uid,
                 controller: controller,
@@ -107,6 +131,7 @@ struct SettingsView: View {
 
             PriorityListView(
                 title: L10n.string("devices.output"),
+                systemImage: "speaker.wave.2",
                 kind: .output,
                 currentUID: controller.currentOutput?.uid,
                 controller: controller,
@@ -133,6 +158,7 @@ enum SettingsAccessibilityID {
     static let root = "settings.root"
     static let headerOptions = "settings.headerOptions"
     static let automaticUpdateChecks = "settings.automaticUpdateChecks"
+    static let priorityHeader = "settings.priorityHeader"
     static let deviceLists = "settings.deviceLists"
 
     static func deviceScrollView(for kind: DeviceKind) -> String {
@@ -141,6 +167,15 @@ enum SettingsAccessibilityID {
             "settings.inputDeviceScrollView"
         case .output:
             "settings.outputDeviceScrollView"
+        }
+    }
+
+    static func manualOverrideBanner(for kind: DeviceKind) -> String {
+        switch kind {
+        case .input:
+            "settings.inputManualOverrideBanner"
+        case .output:
+            "settings.outputManualOverrideBanner"
         }
     }
 }
@@ -222,164 +257,236 @@ private final class SettingsLayoutProbeNSView: NSView {
     }
 }
 
+private enum SettingsMetrics {
+    static let outerPadding: CGFloat = 20
+    static let sectionSpacing: CGFloat = 20
+    static let itemSpacing: CGFloat = 8
+    static let rowSpacing: CGFloat = 6
+    static let rowHeight: CGFloat = 36
+    static let cornerRadius: CGFloat = 8
+    /// Height of the soft fade at the top and bottom of a device list. The list content gets
+    /// the same inset so the first and last row are fully visible at rest.
+    static let edgeFade: CGFloat = 12
+    /// Room for an overlay scroller, which is drawn on top of the content. The scroll view reaches
+    /// this far into the gutter between the columns and the window edge (`sectionSpacing`, `outerPadding`).
+    @MainActor static var overlayScrollerInset: CGFloat {
+        NSScroller.scrollerWidth(for: .regular, scrollerStyle: .overlay) + 1
+    }
+    /// Gap between rows and a legacy scroller, which already takes its own space.
+    static let legacyScrollerInset: CGFloat = 4
+}
+
+private enum DeviceRowStatus {
+    case active
+    case manual
+    case unavailable
+
+    init?(item: AudioDeviceListItem, currentUID: String?, manualUID: String?) {
+        if !item.isAvailable {
+            self = .unavailable
+        } else if item.device.uid == manualUID {
+            self = .manual
+        } else if item.device.uid == currentUID {
+            self = .active
+        } else {
+            return nil
+        }
+    }
+}
+
 private struct PriorityListView: View {
     let title: String
+    let systemImage: String
     let kind: DeviceKind
     let currentUID: String?
     @ObservedObject var controller: AudioFallbackController
     let layoutObserver: SettingsLayoutObserver?
     @State private var draggingUID: String?
-    @State private var rowWidth: CGFloat = 340
+    @State private var rowWidth: CGFloat = 0
     @State private var dragPreviewWidth: CGFloat?
+    @State private var scrollerStyle = NSScroller.preferredScrollerStyle
 
     var body: some View {
         let items = controller.orderedDeviceListItems(for: kind)
-        let scrollbarReservedWidth: CGFloat = 16
-        let rowLeadingBleedProtection: CGFloat = 4
+        let manualDevice = controller.manualOverrideDevice(for: kind)
 
-        GeometryReader { proxy in
-            let measuredRowWidth = max(324, proxy.size.width - scrollbarReservedWidth - rowLeadingBleedProtection)
-            let measuredScrollViewWidth = measuredRowWidth + scrollbarReservedWidth
+        let scrollerInset = scrollerStyle == .overlay
+            ? SettingsMetrics.overlayScrollerInset
+            : SettingsMetrics.legacyScrollerInset
 
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
+            Label {
                 Text(title)
-                    .font(.headline)
+            } icon: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.headline)
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            DeviceRowView(
+            if let manualDevice {
+                ManualOverrideBanner(deviceName: manualDevice.name) {
+                    controller.clearManualOverride(for: kind)
+                }
+                .padding(.top, SettingsMetrics.itemSpacing)
+                .accessibilityIdentifier(SettingsAccessibilityID.manualOverrideBanner(for: kind))
+                .layoutProbe(SettingsAccessibilityID.manualOverrideBanner(for: kind), observer: layoutObserver)
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: SettingsMetrics.rowSpacing) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        let status = DeviceRowStatus(
+                            item: item,
+                            currentUID: currentUID,
+                            manualUID: manualDevice?.uid
+                        )
+
+                        DeviceRowContent(index: index, item: item, status: status) {
+                            controller.removeUnavailableDevice(kind: kind, uid: item.device.uid)
+                        }
+                        .onDrag {
+                            draggingUID = item.id
+                            dragPreviewWidth = rowWidth
+                            NSCursor.closedHand.set()
+                            return NSItemProvider(object: item.id as NSString)
+                        } preview: {
+                            DeviceRowContent(
                                 index: index,
                                 item: item,
-                                isCurrent: item.device.uid == currentUID,
-                                kind: kind,
-                                controller: controller,
-                                rowWidth: measuredRowWidth
-                            )
-                            .opacity(draggingUID == item.id ? 0.98 : 1)
-                            .onDrag {
-                                rowWidth = measuredRowWidth
-                                draggingUID = item.id
-                                dragPreviewWidth = measuredRowWidth
-                                NSCursor.closedHand.set()
-                                return NSItemProvider(object: item.id as NSString)
-                            } preview: {
-                                DeviceRowContent(
-                                    index: index,
-                                    item: item,
-                                    isCurrent: item.device.uid == currentUID,
-                                    removeAction: nil,
-                                    fixedWidth: dragPreviewWidth ?? measuredRowWidth
-                                )
-                            }
-                            .onDrop(
-                                of: [.text],
-                                delegate: DeviceReorderDropDelegate(
-                                    item: item,
-                                    items: items,
-                                    kind: kind,
-                                    controller: controller,
-                                    draggingUID: $draggingUID,
-                                    dragPreviewWidth: $dragPreviewWidth
-                                )
+                                status: status,
+                                removeAction: nil,
+                                fixedWidth: dragPreviewWidth ?? rowWidth
                             )
                         }
-
-                    }
-                    .frame(width: measuredRowWidth, alignment: .topLeading)
-                    .overlay(alignment: .bottomLeading) {
-                        Color.clear
-                            .frame(width: measuredRowWidth, height: 8)
-                            .contentShape(Rectangle())
-                            .onDrop(
-                                of: [.text],
-                                delegate: DeviceListEndDropDelegate(
-                                    items: items,
-                                    kind: kind,
-                                    controller: controller,
-                                    draggingUID: $draggingUID,
-                                    dragPreviewWidth: $dragPreviewWidth
-                                )
+                        .onDrop(
+                            of: [.text],
+                            delegate: DeviceReorderDropDelegate(
+                                item: item,
+                                items: items,
+                                kind: kind,
+                                controller: controller,
+                                draggingUID: $draggingUID,
+                                dragPreviewWidth: $dragPreviewWidth
                             )
+                        )
                     }
-                    .padding(.top, 4)
-                    .padding(.leading, rowLeadingBleedProtection)
-                    .padding(.trailing, scrollbarReservedWidth)
                 }
-                .frame(width: measuredScrollViewWidth, alignment: .leading)
-                .frame(maxHeight: .infinity, alignment: .topLeading)
-                .contentMargins(.bottom, 0, for: .scrollContent)
-                .contentMargins(.bottom, 0, for: .scrollIndicators)
-                .accessibilityIdentifier(SettingsAccessibilityID.deviceScrollView(for: kind))
-                .layoutProbe(SettingsAccessibilityID.deviceScrollView(for: kind), observer: layoutObserver)
-                .onAppear {
-                    rowWidth = measuredRowWidth
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { newWidth in
+                    rowWidth = newWidth
                 }
-                .onChange(of: measuredRowWidth) { _, newWidth in
-                    if draggingUID == nil {
-                        rowWidth = newWidth
-                    }
+                .padding(.vertical, SettingsMetrics.edgeFade)
+                .padding(.trailing, scrollerInset)
+                .overlay(alignment: .bottom) {
+                    Color.clear
+                        .frame(height: SettingsMetrics.edgeFade)
+                        .contentShape(Rectangle())
+                        .onDrop(
+                            of: [.text],
+                            delegate: DeviceListEndDropDelegate(
+                                items: items,
+                                kind: kind,
+                                controller: controller,
+                                draggingUID: $draggingUID,
+                                dragPreviewWidth: $dragPreviewWidth
+                            )
+                        )
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .contentMargins(.vertical, SettingsMetrics.edgeFade, for: .scrollIndicators)
+            .mask(EdgeFadeMask(fadeHeight: SettingsMetrics.edgeFade))
+            // An overlay scroller floats above the content: let the scroll view reach into the
+            // gutter so rows stay aligned with the column while the scroller sits beside them.
+            .padding(.trailing, scrollerStyle == .overlay ? -scrollerInset : 0)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+            .accessibilityIdentifier(SettingsAccessibilityID.deviceScrollView(for: kind))
+            .layoutProbe(SettingsAccessibilityID.deviceScrollView(for: kind), observer: layoutObserver)
         }
-        .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onReceive(NotificationCenter.default.publisher(for: NSScroller.preferredScrollerStyleDidChangeNotification)) { _ in
+            scrollerStyle = NSScroller.preferredScrollerStyle
+        }
     }
 }
 
-private struct DeviceRowView: View {
-    let index: Int
-    let item: AudioDeviceListItem
-    let isCurrent: Bool
-    let kind: DeviceKind
-    @ObservedObject var controller: AudioFallbackController
-    let rowWidth: CGFloat
+private struct EdgeFadeMask: View {
+    let fadeHeight: CGFloat
 
     var body: some View {
-        DeviceRowContent(
-            index: index,
-            item: item,
-            isCurrent: isCurrent
-        ) {
-            controller.removeUnavailableDevice(kind: kind, uid: item.device.uid)
+        VStack(spacing: 0) {
+            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                .frame(height: fadeHeight)
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: fadeHeight)
         }
-        .frame(width: rowWidth, alignment: .leading)
+    }
+}
+
+private struct ManualOverrideBanner: View {
+    let deviceName: String
+    let applyAction: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "pause.circle.fill")
+                .foregroundStyle(.orange)
+
+            Text(L10n.format("settings.manualOverrideBanner", deviceName))
+                .font(.callout)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(L10n.string("settings.applyPriority"), action: applyAction)
+                .controlSize(.small)
+                .fixedSize()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
+                .fill(Color.orange.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.35), lineWidth: 1)
+        )
     }
 }
 
 private struct DeviceRowContent: View {
     let index: Int
     let item: AudioDeviceListItem
-    let isCurrent: Bool
+    let status: DeviceRowStatus?
     let removeAction: (() -> Void)?
     let fixedWidth: CGFloat?
 
     init(
         index: Int,
         item: AudioDeviceListItem,
-        isCurrent: Bool,
+        status: DeviceRowStatus?,
         removeAction: (() -> Void)? = nil,
         fixedWidth: CGFloat? = nil
     ) {
         self.index = index
         self.item = item
-        self.isCurrent = isCurrent
+        self.status = status
         self.removeAction = removeAction
         self.fixedWidth = fixedWidth
     }
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: SettingsMetrics.itemSpacing) {
             DragHandleView()
-                .foregroundStyle(item.isAvailable ? .secondary : .tertiary)
-                .frame(width: 9)
-                .padding(.leading, 6)
+                .foregroundStyle(.tertiary)
                 .help(L10n.string("devices.dragHandleHelp"))
 
             Text("\(index + 1)")
                 .font(.body.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 18, alignment: .trailing)
+                .frame(minWidth: 18, alignment: .trailing)
 
             Text(item.device.name)
                 .lineLimit(1)
@@ -387,17 +494,8 @@ private struct DeviceRowContent: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(item.isAvailable ? .primary : .secondary)
 
-            if isCurrent {
-                Text(L10n.string("devices.active"))
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .padding(.horizontal, 8)
-            } else if !item.isAvailable {
-                Text(L10n.string("devices.unavailable"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: 82, alignment: .trailing)
+            if let status {
+                DeviceStatusTag(status: status)
             }
 
             if !item.isAvailable {
@@ -405,18 +503,69 @@ private struct DeviceRowContent: View {
                     removeAction?()
                 }
                 .labelStyle(.iconOnly)
-                .foregroundStyle(.red)
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
                 .help(L10n.string("devices.removeUnavailableHelp"))
-                .frame(width: 24)
-                .padding(.trailing, 4)
                 .disabled(removeAction == nil)
                 .arrowCursor()
             }
         }
+        .padding(.horizontal, 10)
         .rowChrome(fixedWidth: fixedWidth)
         .contentShape(Rectangle())
-        .contentShape(.dragPreview, RoundedRectangle(cornerRadius: 6))
+        .contentShape(
+            .dragPreview,
+            RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
+        )
         .handCursor()
+    }
+}
+
+private struct DeviceStatusTag: View {
+    let status: DeviceRowStatus
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let tint {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 6, height: 6)
+            }
+
+            Text(title)
+                .lineLimit(1)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(status == .unavailable ? .secondary : .primary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(tint.map { $0.opacity(0.14) } ?? Color.secondary.opacity(0.12))
+        )
+        .fixedSize()
+    }
+
+    private var title: String {
+        switch status {
+        case .active:
+            L10n.string("devices.active")
+        case .manual:
+            L10n.string("devices.manual")
+        case .unavailable:
+            L10n.string("devices.unavailable")
+        }
+    }
+
+    private var tint: Color? {
+        switch status {
+        case .active:
+            .green
+        case .manual:
+            .orange
+        case .unavailable:
+            nil
+        }
     }
 }
 
@@ -424,65 +573,19 @@ private struct RowChromeModifier: ViewModifier {
     let fixedWidth: CGFloat?
 
     func body(content: Content) -> some View {
-        let shapedContent = content
-            .padding(.horizontal, 4)
-            .frame(minHeight: 38)
+        let shape = RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
 
         Group {
             if let fixedWidth {
-                shapedContent
-                    .frame(width: fixedWidth, height: 38, alignment: .leading)
+                content
+                    .frame(width: fixedWidth, height: SettingsMetrics.rowHeight, alignment: .leading)
             } else {
-                shapedContent
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                content
+                    .frame(maxWidth: .infinity, minHeight: SettingsMetrics.rowHeight, alignment: .leading)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(nsColor: .audioFallbackDeviceRowBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(nsColor: .audioFallbackDeviceRowBorder), lineWidth: 1)
-        )
-        .shadow(
-            color: Color(nsColor: .audioFallbackDeviceRowShadow),
-            radius: 2,
-            x: 0,
-            y: 1
-        )
-    }
-}
-
-private extension NSColor {
-    static var audioFallbackDeviceRowBackground: NSColor {
-        NSColor(name: nil) { appearance in
-            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
-            if bestMatch == .darkAqua {
-                return NSColor(calibratedWhite: 0.145, alpha: 1)
-            }
-            return NSColor(calibratedWhite: 1, alpha: 1)
-        }
-    }
-
-    static var audioFallbackDeviceRowBorder: NSColor {
-        NSColor(name: nil) { appearance in
-            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
-            if bestMatch == .darkAqua {
-                return .separatorColor.withAlphaComponent(0.30)
-            }
-            return NSColor(calibratedWhite: 0.56, alpha: 1)
-        }
-    }
-
-    static var audioFallbackDeviceRowShadow: NSColor {
-        NSColor(name: nil) { appearance in
-            let bestMatch = appearance.bestMatch(from: [.darkAqua, .aqua])
-            if bestMatch == .darkAqua {
-                return .clear
-            }
-            return NSColor(calibratedWhite: 0, alpha: 0.12)
-        }
+        .background(shape.fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(shape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 }
 
