@@ -1,0 +1,5 @@
+scripts:
+  setup: |
+    scripts/orca-setup.sh
+  archive: |
+    scripts/orca-archive.sh
