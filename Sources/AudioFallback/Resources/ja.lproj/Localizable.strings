@@ -18,7 +18,7 @@
 "menu.quit" = "終了";
 "menu.returnToPriority" = "優先順位に戻す: %@";
 "menu.volume" = "音量";
-"settings.applyPriority" = "優先順位を適用";
+"settings.applyPriority" = "再開";
 "settings.autoSwitch" = "利用可能な最適なデバイスへ自動的に切り替える";
 "settings.automaticUpdateChecks" = "アップデートを自動的に確認";
 "settings.launchAtLogin" = "ログイン時に AudioFallback を起動";

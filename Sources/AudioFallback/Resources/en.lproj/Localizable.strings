@@ -18,7 +18,7 @@
 "menu.quit" = "Quit";
 "menu.returnToPriority" = "Return to Priority Order: %@";
 "menu.volume" = "Volume";
-"settings.applyPriority" = "Apply Priority Order";
+"settings.applyPriority" = "Resume";
 "settings.autoSwitch" = "Automatically switch to the best available device";
 "settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.launchAtLogin" = "Start AudioFallback when you log in";

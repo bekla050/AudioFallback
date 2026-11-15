@@ -18,7 +18,7 @@
 "menu.quit" = "Stop";
 "menu.returnToPriority" = "Terug naar volgorde: %@";
 "menu.volume" = "Volume";
-"settings.applyPriority" = "Volgorde toepassen";
+"settings.applyPriority" = "Hervatten";
 "settings.autoSwitch" = "Automatisch wisselen naar het beste beschikbare apparaat";
 "settings.automaticUpdateChecks" = "Automatisch zoeken naar updates";
 "settings.launchAtLogin" = "Start AudioFallback wanneer je inlogt";

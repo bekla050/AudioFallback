@@ -369,6 +369,15 @@ final class StatusMenuController: NSObject {
             updaterController: updaterController
         )
         logSettingsWindowEvent("Creating settings window")
+        if let savedSize = SettingsWindowFactory.savedContentSize(),
+           let visibleFrame = (NSScreen.main ?? window.screen)?.visibleFrame {
+            // The saved size stays untouched; it only shrinks here when the current screen is too small.
+            let maximumContentSize = window.contentRect(forFrameRect: NSRect(origin: .zero, size: visibleFrame.size)).size
+            window.setContentSize(SettingsWindowFactory.restoredContentSize(
+                saved: savedSize,
+                maximum: maximumContentSize
+            ))
+        }
         window.center()
         window.delegate = self
         settingsWindow = window
@@ -384,6 +393,26 @@ final class StatusMenuController: NSObject {
 
 enum SettingsWindowFactory {
     static let contentSize = NSSize(width: 800, height: 500)
+    private static let contentSizeDefaultsKey = "settingsWindowContentSize"
+
+    static func savedContentSize(defaults: UserDefaults = .standard) -> NSSize? {
+        guard let value = defaults.string(forKey: contentSizeDefaultsKey) else {
+            return nil
+        }
+        return NSSizeFromString(value)
+    }
+
+    static func saveContentSize(_ size: NSSize, defaults: UserDefaults = .standard) {
+        defaults.set(NSStringFromSize(size), forKey: contentSizeDefaultsKey)
+    }
+
+    /// The saved size, reduced to what the screen offers but never below the minimum.
+    static func restoredContentSize(saved: NSSize, maximum: NSSize) -> NSSize {
+        NSSize(
+            width: max(contentSize.width, min(saved.width, maximum.width)),
+            height: max(contentSize.height, min(saved.height, maximum.height))
+        )
+    }
 
     @MainActor
     static func makeWindow(
@@ -538,6 +567,16 @@ extension StatusMenuController: NSWindowDelegate {
 
         logSettingsWindowEvent("Settings window will close")
         settingsWindow = nil
+    }
+
+    // Only a resize by the user is remembered, not one forced by a smaller screen.
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow,
+              let contentSize = window.contentView?.bounds.size else {
+            return
+        }
+
+        SettingsWindowFactory.saveContentSize(contentSize)
     }
 
     func windowDidBecomeKey(_ notification: Notification) {

@@ -119,7 +119,7 @@ struct SettingsView: View {
     }
 
     private var deviceLists: some View {
-        HStack(alignment: .top, spacing: SettingsMetrics.sectionSpacing) {
+        HStack(alignment: .top, spacing: SettingsMetrics.columnSpacing) {
             PriorityListView(
                 title: L10n.string("devices.input"),
                 systemImage: "mic",
@@ -260,6 +260,9 @@ private final class SettingsLayoutProbeNSView: NSView {
 private enum SettingsMetrics {
     static let outerPadding: CGFloat = 20
     static let sectionSpacing: CGFloat = 20
+    /// Gutter between the two device lists. Wider than `sectionSpacing` so the left list's
+    /// overlay scroller keeps a clear distance from the right list.
+    static let columnSpacing: CGFloat = 32
     static let itemSpacing: CGFloat = 8
     static let rowSpacing: CGFloat = 6
     static let rowHeight: CGFloat = 36
@@ -268,7 +271,7 @@ private enum SettingsMetrics {
     /// the same inset so the first and last row are fully visible at rest.
     static let edgeFade: CGFloat = 12
     /// Room for an overlay scroller, which is drawn on top of the content. The scroll view reaches
-    /// this far into the gutter between the columns and the window edge (`sectionSpacing`, `outerPadding`).
+    /// this far into the gutter between the columns and the window edge (`columnSpacing`, `outerPadding`).
     @MainActor static var overlayScrollerInset: CGFloat {
         NSScroller.scrollerWidth(for: .regular, scrollerStyle: .overlay) + 1
     }
@@ -634,6 +637,11 @@ private struct DeviceReorderDropDelegate: DropDelegate {
         }
     }
 
+    // Reordering is a move; the default proposal shows the green copy badge.
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
     func performDrop(info: DropInfo) -> Bool {
         draggingUID = nil
         dragPreviewWidth = nil
@@ -667,6 +675,11 @@ private struct DeviceListEndDropDelegate: DropDelegate {
                 to: items.count
             )
         }
+    }
+
+    // Reordering is a move; the default proposal shows the green copy badge.
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 
     func performDrop(info: DropInfo) -> Bool {

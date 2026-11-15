@@ -116,6 +116,34 @@ struct SettingsWindowLayoutTests {
         #expect(outputScrollFrame.height >= threeRows)
     }
 
+    @Test func restoredContentSizeKeepsSavedSizeUnlessScreenIsTooSmall() {
+        let minimum = SettingsWindowFactory.contentSize
+        let saved = NSSize(width: 900, height: 1000)
+
+        #expect(SettingsWindowFactory.restoredContentSize(
+            saved: saved,
+            maximum: NSSize(width: 1400, height: 1200)
+        ) == saved)
+        #expect(SettingsWindowFactory.restoredContentSize(
+            saved: saved,
+            maximum: NSSize(width: 1400, height: 760)
+        ) == NSSize(width: 900, height: 760))
+        #expect(SettingsWindowFactory.restoredContentSize(
+            saved: NSSize(width: 100, height: 100),
+            maximum: NSSize(width: 1400, height: 1200)
+        ) == minimum)
+    }
+
+    @Test func contentSizeRoundTripsThroughDefaults() throws {
+        let suiteName = "AudioFallbackTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(SettingsWindowFactory.savedContentSize(defaults: defaults) == nil)
+        SettingsWindowFactory.saveContentSize(NSSize(width: 820, height: 940), defaults: defaults)
+        #expect(SettingsWindowFactory.savedContentSize(defaults: defaults) == NSSize(width: 820, height: 940))
+    }
+
     private func makeController(manualOutputUID: String? = nil) throws -> AudioFallbackController {
         let microphone = layoutDevice(uid: "mic-1", name: "Microphone 1", input: true, output: false)
         let inputFallback = layoutDevice(uid: "mic-2", name: "Microphone 2", input: true, output: false)

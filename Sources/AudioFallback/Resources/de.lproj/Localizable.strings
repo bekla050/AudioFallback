@@ -18,7 +18,7 @@
 "menu.quit" = "Beenden";
 "menu.returnToPriority" = "Zurück zur Reihenfolge: %@";
 "menu.volume" = "Lautstärke";
-"settings.applyPriority" = "Reihenfolge anwenden";
+"settings.applyPriority" = "Fortsetzen";
 "settings.autoSwitch" = "Automatisch auf das beste verfügbare Gerät umschalten";
 "settings.automaticUpdateChecks" = "Automatisch nach Updates suchen";
 "settings.launchAtLogin" = "AudioFallback beim Anmelden starten";
