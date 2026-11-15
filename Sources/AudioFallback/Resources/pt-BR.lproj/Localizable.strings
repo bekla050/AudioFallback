@@ -14,7 +14,7 @@
 "menu.checkForUpdates" = "Buscar atualizações…";
 "menu.manualOverrideHint" = "Escolhido manualmente – ordem pausada\naté o dispositivo ser desconectado";
 "menu.moreDevices" = "Mais...";
-"menu.preferences" = "Ajustes...";
+"menu.preferences" = "Ordem e ajustes…";
 "menu.quit" = "Encerrar";
 "menu.returnToPriority" = "Voltar à ordem: %@";
 "menu.volume" = "Volume";

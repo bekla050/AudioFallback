@@ -12,8 +12,12 @@ struct StatusMenuControllerTests {
     @Test func menuUsesSectionHeadersForVolumeAndDeviceLists() throws {
         let (_, menuController) = try makeMenuController(manualInputUID: nil)
 
-        let headers = menuController.makeMenu().items.filter(\.isSectionHeader).map(\.title)
+        let headerItems = menuController.makeMenu().items.filter {
+            $0.identifier == StatusMenuController.sectionHeaderIdentifier
+        }
+        let headers = headerItems.map(\.title)
 
+        #expect(headerItems.allSatisfy { !$0.isEnabled && $0.action == nil })
         #expect(headers == [
             L10n.string("menu.volume"),
             L10n.string("devices.input"),
@@ -29,7 +33,7 @@ struct StatusMenuControllerTests {
         let returnTitle = L10n.format("menu.returnToPriority", preferredMic.name)
         let returnIndexes = items.indices.filter { items[$0].title == returnTitle }
         let outputHeaderIndex = try #require(items.firstIndex {
-            $0.isSectionHeader && $0.title == L10n.string("devices.output")
+            $0.identifier == StatusMenuController.sectionHeaderIdentifier && $0.title == L10n.string("devices.output")
         })
         let lastInputDeviceIndex = try #require(items.lastIndex { $0.title == "2. \(manualMic.name)" })
 

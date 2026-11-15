@@ -14,7 +14,7 @@
 "menu.checkForUpdates" = "업데이트 확인…";
 "menu.manualOverrideHint" = "수동으로 선택됨 – 기기 연결이 해제될 때까지\n우선순위가 일시 중지됨";
 "menu.moreDevices" = "더 보기...";
-"menu.preferences" = "설정...";
+"menu.preferences" = "우선순위 및 설정…";
 "menu.quit" = "종료";
 "menu.returnToPriority" = "우선순위로 돌아가기: %@";
 "menu.volume" = "음량";

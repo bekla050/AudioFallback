@@ -14,7 +14,7 @@
 "menu.checkForUpdates" = "アップデートを確認…";
 "menu.manualOverrideHint" = "手動で選択 – デバイスが切断されるまで\n優先順位は一時停止中";
 "menu.moreDevices" = "その他...";
-"menu.preferences" = "設定...";
+"menu.preferences" = "優先順位と設定…";
 "menu.quit" = "終了";
 "menu.returnToPriority" = "優先順位に戻す: %@";
 "menu.volume" = "音量";

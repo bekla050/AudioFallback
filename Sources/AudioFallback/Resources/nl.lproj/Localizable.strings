@@ -14,7 +14,7 @@
 "menu.checkForUpdates" = "Zoek naar updates…";
 "menu.manualOverrideHint" = "Handmatig gekozen – volgorde gepauzeerd\ntot het apparaat wordt losgekoppeld";
 "menu.moreDevices" = "Meer...";
-"menu.preferences" = "Instellingen...";
+"menu.preferences" = "Volgorde en instellingen…";
 "menu.quit" = "Stop";
 "menu.returnToPriority" = "Terug naar volgorde: %@";
 "menu.volume" = "Volume";

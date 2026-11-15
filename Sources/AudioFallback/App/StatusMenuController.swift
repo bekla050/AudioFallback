@@ -54,7 +54,7 @@ final class StatusMenuController: NSObject {
     private func rebuildMenuItems() {
         menu.removeAllItems()
 
-        menu.addItem(.sectionHeader(title: L10n.string("menu.volume")))
+        menu.addItem(Self.sectionHeaderItem(title: L10n.string("menu.volume")))
         menu.addItem(volumeMenuItem())
         menu.addItem(.separator())
 
@@ -185,8 +185,56 @@ final class StatusMenuController: NSObject {
         }
     }
 
+    static let sectionHeaderIdentifier = NSUserInterfaceItemIdentifier("app.audiofallback.menu.sectionHeader")
+    /// Left inset of view-based labels. AppKit offers no API for the title column of
+    /// standard items, so this matches it as measured on macOS 26.
+    private static let menuTitleLeadingInset: CGFloat = 24
+
+    /// Section header like Apple's menu bar modules: semibold, menu font size, primary
+    /// label color. Neither `NSMenuItem.sectionHeader` (small gray text) nor a disabled
+    /// item with an attributed title (dimmed by AppKit) is readable on the translucent
+    /// menu background, so the title is drawn by a label view.
+    static func sectionHeaderItem(title: String) -> NSMenuItem {
+        let item = labelMenuItem(
+            title: title,
+            font: .systemFont(ofSize: NSFont.menuFont(ofSize: 0).pointSize, weight: .semibold),
+            topInset: 8,
+            bottomInset: 4
+        )
+        item.identifier = sectionHeaderIdentifier
+        return item
+    }
+
+    /// Non-interactive menu item whose text AppKit does not dim.
+    private static func labelMenuItem(title: String, font: NSFont, topInset: CGFloat, bottomInset: CGFloat) -> NSMenuItem {
+        let label = NSTextField(labelWithString: title)
+        label.font = font
+        label.textColor = .labelColor
+        label.maximumNumberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        let labelSize = label.fittingSize
+        let view = NSView(frame: NSRect(
+            x: 0,
+            y: 0,
+            width: menuTitleLeadingInset + ceil(labelSize.width) + 14,
+            height: topInset + ceil(labelSize.height) + bottomInset
+        ))
+        view.autoresizingMask = [.width]
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: menuTitleLeadingInset),
+            label.topAnchor.constraint(equalTo: view.topAnchor, constant: topInset)
+        ])
+
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.view = view
+        item.isEnabled = false
+        return item
+    }
+
     private func addDeviceSection(to menu: NSMenu, title: String, kind: DeviceKind) {
-        menu.addItem(.sectionHeader(title: title))
+        menu.addItem(Self.sectionHeaderItem(title: title))
 
         let devices = controller.orderedDevices(for: kind)
         let currentUID = switch kind {
@@ -237,13 +285,12 @@ final class StatusMenuController: NSObject {
         }
 
         let hint = L10n.string("menu.manualOverrideHint")
-        let hintItem = NSMenuItem(title: hint, action: nil, keyEquivalent: "")
-        hintItem.attributedTitle = NSAttributedString(string: hint, attributes: [
-            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
-            .foregroundColor: NSColor.secondaryLabelColor
-        ])
-        hintItem.isEnabled = false
-        menu.addItem(hintItem)
+        menu.addItem(Self.labelMenuItem(
+            title: hint,
+            font: .menuFont(ofSize: NSFont.smallSystemFontSize),
+            topInset: 2,
+            bottomInset: 4
+        ))
 
         let returnItem = NSMenuItem(
             title: L10n.format("menu.returnToPriority", priorityDevice.name),

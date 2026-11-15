@@ -14,7 +14,7 @@
 "menu.checkForUpdates" = "Check for Updates…";
 "menu.manualOverrideHint" = "Selected manually – priority order paused\nuntil the device is disconnected";
 "menu.moreDevices" = "More...";
-"menu.preferences" = "Settings...";
+"menu.preferences" = "Priority and Settings…";
 "menu.quit" = "Quit";
 "menu.returnToPriority" = "Return to Priority Order: %@";
 "menu.volume" = "Volume";
