@@ -2,16 +2,16 @@ import Foundation
 import Testing
 
 struct ReleaseConfigurationTests {
-    @Test func releaseMetadataMatchesVersion040() throws {
-        #expect(try run("scripts/build-app.sh", "--print-version").stdout == "0.4.0\n")
-        #expect(try run("scripts/build-app.sh", "--print-build-version").stdout == "6\n")
-        #expect(try run("scripts/build-app.sh", "--print-dmg-name").stdout == "AudioFallback-0.4.0.dmg\n")
-        #expect(try run("scripts/validate-release.sh", "v0.4.0").status == 0)
+    @Test func releaseMetadataMatchesVersion041() throws {
+        #expect(try run("scripts/build-app.sh", "--print-version").stdout == "0.4.1\n")
+        #expect(try run("scripts/build-app.sh", "--print-build-version").stdout == "7\n")
+        #expect(try run("scripts/build-app.sh", "--print-dmg-name").stdout == "AudioFallback-0.4.1.dmg\n")
+        #expect(try run("scripts/validate-release.sh", "v0.4.1").status == 0)
     }
 
     @Test func rejectsMismatchedOrMalformedTags() throws {
         #expect(try run("scripts/validate-release.sh", "v0.2.1").status != 0)
-        #expect(try run("scripts/validate-release.sh", "0.4.0").status != 0)
+        #expect(try run("scripts/validate-release.sh", "0.4.1").status != 0)
         #expect(try run("scripts/validate-release.sh", "v0.3").status != 0)
     }
 
